@@ -4,23 +4,27 @@ import Header from '../components/Header';
 import SummaryCard from '../components/SummaryCard';
 import TransactionItem from '../components/TransactionItem';
 import TransactionForm from '../components/TransactionForm';
+import ConfirmModal from '../components/ConfirmModal';
 import api from '../services/api';
 import { formatMoney, normalizeText } from '../utils/formatters';
 import {
   buildMap,
   buildSummaryData,
+  calculateAccountBalance,
   calculateBalance,
   filterTransactionsByDate,
   filterTransactionsByPeriod,
   getInitialTransaction,
+  getProjectedAccountBalance,
   getProjectedBalance,
   groupTransactionsByDay,
   normalizeUserTransactions,
 } from '../utils/finance';
-import styles from '../styles/transacciones.module.css';
+import { useNavigate } from 'react-router-dom';
 
 const filters = ['Todos', 'Ingresos', 'Gastos'];
 const periods = ['Todos', 'Diario', 'Semanal', 'Mensual'];
+
 
 function getStoredUser() {
   const localUser = localStorage.getItem('finora_usuario');
@@ -31,6 +35,7 @@ function getStoredUser() {
 }
 
 export default function Transacciones({ usuario, onLogout }) {
+  const navigate = useNavigate();
   const currentUser = usuario || getStoredUser();
 
   const [search, setSearch] = useState('');
@@ -48,6 +53,14 @@ export default function Transacciones({ usuario, onLogout }) {
   const [errorMessage, setErrorMessage] = useState('');
   const [showTransactionForm, setShowTransactionForm] = useState(false);
   const [editingTransactionId, setEditingTransactionId] = useState(null);
+  const [transactionToDelete, setTransactionToDelete] = useState(null);
+
+  const [showCategoryForm, setShowCategoryForm] = useState(false);
+  const [newCategory, setNewCategory] = useState({
+    nombre: '',
+    tipo_movimiento: 'GASTO',
+    descripcion: '',
+  });
 
   const [newTransaction, setNewTransaction] = useState(
     getInitialTransaction()
@@ -148,15 +161,13 @@ export default function Transacciones({ usuario, onLogout }) {
         transaccionesResponse,
         metasResponse,
       ] = await Promise.all([
-        api.get('/cuentas/'),
+        api.get('/finanzas/cuentas/'),
         api.get('/categorias/'),
         api.get('/transacciones/'),
-        api.get('/metas_financieras/'),
+        api.get('/finanzas/metas/'),
       ]);
 
-      const cuentasUsuario = cuentasResponse.data.filter((cuenta) => {
-        return cuenta.id_usuario === currentUser.id_usuario && cuenta.activa;
-      });
+      const cuentasUsuario = cuentasResponse.data;
 
       const categoriasUsuario = categoriasResponse.data.filter((categoria) => {
         return (
@@ -165,9 +176,7 @@ export default function Transacciones({ usuario, onLogout }) {
         );
       });
 
-      const metasUsuario = metasResponse.data.filter((meta) => {
-        return meta.id_usuario === currentUser.id_usuario;
-      });
+      const metasUsuario = metasResponse.data;
 
       setCuentas(cuentasUsuario);
       setCategorias(categoriasUsuario);
@@ -237,6 +246,35 @@ export default function Transacciones({ usuario, onLogout }) {
       return;
     }
 
+    const selectedAccount = cuentas.find((cuenta) => {
+      return cuenta.id_cuenta === Number(newTransaction.id_cuenta);
+    });
+
+    if (!selectedAccount) {
+      setErrorMessage('La cuenta seleccionada no existe o no está disponible.');
+      return;
+    }
+
+    const projectedAccountBalance = getProjectedAccountBalance({
+      account: selectedAccount,
+      transactions: transaccionesUsuario,
+      originalTransaction,
+      selectedCategory,
+      newAmount: monto,
+    });
+
+    if (projectedAccountBalance < 0) {
+      setErrorMessage(
+        `No puedes guardar esta transacción porque la cuenta "${selectedAccount.nombre}" no tiene saldo suficiente. Saldo disponible: ${formatMoney(
+          calculateAccountBalance({
+            account: selectedAccount,
+            transactions: transaccionesUsuario,
+          })
+        )}.`
+      );
+      return;
+    }
+
     if (newTransaction.fecha_movimiento > todayISO) {
       setErrorMessage('No puedes registrar una transacción con fecha futura.');
       return;
@@ -290,12 +328,6 @@ export default function Transacciones({ usuario, onLogout }) {
   }
 
   async function handleDeleteTransaction(transactionId) {
-    const confirmDelete = window.confirm(
-      '¿Seguro que deseas eliminar esta transacción?'
-    );
-
-    if (!confirmDelete) return;
-
     setErrorMessage('');
 
     try {
@@ -305,6 +337,7 @@ export default function Transacciones({ usuario, onLogout }) {
         resetTransactionForm();
       }
 
+      setTransactionToDelete(null);
       await loadFinancialData();
     } catch (error) {
       console.error(
@@ -314,6 +347,49 @@ export default function Transacciones({ usuario, onLogout }) {
 
       setErrorMessage(
         error.response?.data?.message || 'No se pudo eliminar la transacción.'
+      );
+    }
+  }
+
+  async function handleCreateCategory(event) {
+    event.preventDefault();
+    setErrorMessage('');
+
+    const nombre = newCategory.nombre.trim();
+    const descripcion = newCategory.descripcion.trim();
+
+    if (!nombre) {
+      setErrorMessage('El nombre de la categoría es obligatorio.');
+      return;
+    }
+
+    try {
+      const response = await api.post('/categorias/', {
+        id_usuario: currentUser.id_usuario,
+        nombre,
+        tipo_movimiento: newCategory.tipo_movimiento,
+        descripcion,
+        activa: true,
+      });
+
+      setCategorias((prev) => [...prev, response.data]);
+
+      setNewTransaction((prev) => ({
+        ...prev,
+        id_categoria: response.data.id_categoria,
+      }));
+
+      setNewCategory({
+        nombre: '',
+        tipo_movimiento: 'GASTO',
+        descripcion: '',
+      });
+
+      setShowCategoryForm(false);
+    } catch (error) {
+      console.error('Error creando categoría:', error.response?.data || error);
+      setErrorMessage(
+        error.response?.data?.message || 'No se pudo crear la categoría.'
       );
     }
   }
@@ -375,6 +451,18 @@ export default function Transacciones({ usuario, onLogout }) {
                     type="button"
                     className="inline-flex items-center justify-center rounded-2xl bg-violet-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-violet-800"
                     onClick={() => {
+                      if (cuentas.length === 0) {
+                        const shouldGoToAccounts = window.confirm(
+                          'Necesitas crear una cuenta antes de registrar transacciones. ¿Quieres ir al módulo de Cuentas?'
+                        );
+
+                        if (shouldGoToAccounts) {
+                          navigate('/cuentas');
+                        }
+
+                        return;
+                      }
+
                       if (showTransactionForm) {
                         resetTransactionForm();
                         return;
@@ -433,6 +521,7 @@ export default function Transacciones({ usuario, onLogout }) {
                       onChange={setNewTransaction}
                       onSubmit={handleSubmitTransaction}
                       maxDate={todayISO}
+                      onOpenCategoryForm={() => setShowCategoryForm((value) => !value)}
                       submitLabel={
                         editingTransactionId
                           ? 'Actualizar transacción'
@@ -440,6 +529,76 @@ export default function Transacciones({ usuario, onLogout }) {
                       }
                     />
                   </div>
+                )}
+                {showCategoryForm && (
+                  <form
+                    onSubmit={handleCreateCategory}
+                    className="mt-4 grid grid-cols-1 gap-4 rounded-3xl border border-slate-200 bg-white p-4 md:grid-cols-3"
+                  >
+                    <div className="flex flex-col gap-2">
+                      <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        Nombre
+                      </label>
+                      <input
+                        type="text"
+                        value={newCategory.nombre}
+                        onChange={(e) =>
+                          setNewCategory({
+                            ...newCategory,
+                            nombre: e.target.value,
+                          })
+                        }
+                        placeholder="Ej: Transporte"
+                        className="h-11 rounded-2xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 outline-none transition focus:border-violet-400 focus:ring-4 focus:ring-violet-100"
+                      />
+                    </div>
+
+                    <div className="flex flex-col gap-2">
+                      <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        Tipo
+                      </label>
+                      <select
+                        value={newCategory.tipo_movimiento}
+                        onChange={(e) =>
+                          setNewCategory({
+                            ...newCategory,
+                            tipo_movimiento: e.target.value,
+                          })
+                        }
+                        className="h-11 rounded-2xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 outline-none transition focus:border-violet-400 focus:ring-4 focus:ring-violet-100"
+                      >
+                        <option value="GASTO">Gasto</option>
+                        <option value="INGRESO">Ingreso</option>
+                      </select>
+                    </div>
+
+                    <div className="flex flex-col gap-2">
+                      <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        Descripción
+                      </label>
+                      <input
+                        type="text"
+                        value={newCategory.descripcion}
+                        onChange={(e) =>
+                          setNewCategory({
+                            ...newCategory,
+                            descripcion: e.target.value,
+                          })
+                        }
+                        placeholder="Descripción opcional"
+                        className="h-11 rounded-2xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 outline-none transition focus:border-violet-400 focus:ring-4 focus:ring-violet-100"
+                      />
+                    </div>
+
+                    <div className="md:col-span-3">
+                      <button
+                        type="submit"
+                        className="rounded-2xl bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800"
+                      >
+                        Guardar categoría
+                      </button>
+                    </div>
+                  </form>
                 )}
               </div>
 
@@ -469,16 +628,14 @@ export default function Transacciones({ usuario, onLogout }) {
                                 date={transaction.date}
                                 type={transaction.type}
                                 onEdit={() => handleStartEditTransaction(transaction)}
-                                onDelete={() =>
-                                  handleDeleteTransaction(transaction.id_transaccion)
-                                }
+                                onDelete={() => setTransactionToDelete(transaction)}
                               />
                             ))}
                           </div>
                         </section>
                       )
                     )}
-                  </div>
+                </div>
                 ) : (
                   <div className="grid h-full min-h-[260px] place-items-center rounded-2xl border border-dashed border-slate-200 px-4 text-center">
                     <div>
@@ -495,6 +652,21 @@ export default function Transacciones({ usuario, onLogout }) {
             </section>
           </main>
         </div>
+
+        <ConfirmModal
+          open={Boolean(transactionToDelete)}
+          title="Eliminar transacción"
+          message={`La transacción "${transactionToDelete?.title}" será eliminada y dejará de afectar tus saldos.`}
+          confirmLabel="Eliminar"
+          cancelLabel="Cancelar"
+          variant="danger"
+          onCancel={() => setTransactionToDelete(null)}
+          onConfirm={() => {
+            if (transactionToDelete) {
+              handleDeleteTransaction(transactionToDelete.id_transaccion);
+            }
+          }}
+        />
       </div>
     );
 }

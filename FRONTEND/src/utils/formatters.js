@@ -67,3 +67,21 @@ export function parseLocalDate(value) {
 
   return new Date(`${value}T00:00:00`);
 }
+
+export function onlyDigits(value) {
+  return String(value || '').replace(/\D/g, '');
+}
+
+export function formatNumberInput(value) {
+  const digits = onlyDigits(value);
+
+  if (!digits) return '';
+
+  return Number(digits).toLocaleString('es-CO');
+}
+
+export function parseMoneyInput(value) {
+  const digits = onlyDigits(value);
+
+  return digits ? Number(digits) : 0;
+}

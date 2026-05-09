@@ -3,6 +3,8 @@ import { Navigate, Route, Routes } from "react-router-dom"
 import { useState } from "react"
 import api from "./services/api"
 import Transacciones from "./pages/Transacciones"
+import Cuentas from "./pages/Cuentas"
+import Metas from "./pages/Metas"
 
 function getStoredUser() {
   const localUser = localStorage.getItem("finora_usuario")
@@ -162,7 +164,28 @@ function App() {
         }
       />
 
+      <Route
+        path="/cuentas"
+        element={
+          <Cuentas
+            usuario={usuario}
+            onLogout={handleLogout}
+          />
+        }
+      />
+
+      <Route
+        path="/metas"
+        element={
+          <Metas
+            usuario={usuario}
+            onLogout={handleLogout}
+          />
+        }
+      />
+
       <Route path="/" element={<Navigate to="/transacciones" replace />} />
+      <Route path="*" element={<Navigate to="/transacciones" replace />} />
     </Routes>
   )
 }

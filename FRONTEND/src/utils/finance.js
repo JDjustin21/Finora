@@ -46,8 +46,15 @@ export function normalizeUserTransactions({
         tipoMovimiento,
       };
     })
-    .sort((a, b) => {
-      return new Date(b.fecha_movimiento) - new Date(a.fecha_movimiento);
+   .sort((a, b) => {
+      const dateA = new Date(`${a.fecha_movimiento}T00:00:00`).getTime();
+      const dateB = new Date(`${b.fecha_movimiento}T00:00:00`).getTime();
+
+      if (dateB !== dateA) {
+        return dateB - dateA;
+      }
+
+      return Number(b.id_transaccion || 0) - Number(a.id_transaccion || 0);
     });
 }
 
@@ -67,7 +74,7 @@ export function buildSummaryData({ transaccionesUsuario, cuentas, metas }) {
   const balance = saldoInicial + ingresos - gastos;
 
   const totalMetas = metas.reduce((total, meta) => {
-    return total + Number(meta.monto_objetivo || 0);
+    return total + Number(meta.monto_ahorrado || 0);
   }, 0);
 
   return [
@@ -228,6 +235,71 @@ export function getProjectedBalance({
   const originalEffect = getTransactionEffect(originalTransaction);
 
   const balanceWithoutOriginal = currentBalance - originalEffect;
+
+  const newEffect =
+    selectedCategory?.tipo_movimiento === 'INGRESO'
+      ? Math.abs(Number(newAmount || 0))
+      : -Math.abs(Number(newAmount || 0));
+
+  return balanceWithoutOriginal + newEffect;
+}
+
+export function calculateAccountBalance({ account, transactions }) {
+  const saldoInicial = Number(account?.saldo_inicial || 0);
+
+  const accountTransactions = transactions.filter((transaction) => {
+    return transaction.id_cuenta === account.id_cuenta;
+  });
+
+  const ingresos = accountTransactions
+    .filter((transaction) => transaction.tipoMovimiento === 'INGRESO')
+    .reduce((total, transaction) => {
+      return total + Math.abs(Number(transaction.amount || 0));
+    }, 0);
+
+  const gastos = accountTransactions
+    .filter((transaction) => transaction.tipoMovimiento === 'GASTO')
+    .reduce((total, transaction) => {
+      return total + Math.abs(Number(transaction.amount || 0));
+    }, 0);
+
+  return saldoInicial + ingresos - gastos;
+}
+
+export function buildAccountsWithCurrentBalance({ accounts, transactions }) {
+  return accounts.map((account) => {
+    const saldo_actual = calculateAccountBalance({
+      account,
+      transactions,
+    });
+
+    return {
+      ...account,
+      saldo_actual,
+    };
+  });
+}
+
+export function getProjectedAccountBalance({
+  account,
+  transactions,
+  originalTransaction,
+  selectedCategory,
+  newAmount,
+}) {
+  const currentAccountBalance = calculateAccountBalance({
+    account,
+    transactions,
+  });
+
+  const originalEffect =
+    originalTransaction && originalTransaction.id_cuenta === account.id_cuenta
+      ? originalTransaction.tipoMovimiento === 'INGRESO'
+        ? Math.abs(Number(originalTransaction.amount || 0))
+        : -Math.abs(Number(originalTransaction.amount || 0))
+      : 0;
+
+  const balanceWithoutOriginal = currentAccountBalance - originalEffect;
 
   const newEffect =
     selectedCategory?.tipo_movimiento === 'INGRESO'

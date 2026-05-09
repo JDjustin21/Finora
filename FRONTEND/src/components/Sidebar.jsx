@@ -3,6 +3,7 @@ import { NavLink } from 'react-router-dom';
 const menuItems = [
   { label: 'Dashboard', path: '/dashboard' },
   { label: 'Transacciones', path: '/transacciones' },
+  { label: 'Cuentas', path: '/cuentas' },
   { label: 'Metas', path: '/metas' },
   { label: 'Reportes', path: '/reportes' },
   { label: 'Configuración', path: '/configuracion' },
