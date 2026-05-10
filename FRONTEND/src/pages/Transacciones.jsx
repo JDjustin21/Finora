@@ -200,8 +200,16 @@ export default function Transacciones({ usuario, onLogout }) {
 
   function resetTransactionForm() {
     setShowTransactionForm(false);
+    setShowCategoryForm(false);
     setEditingTransactionId(null);
+
     setNewTransaction(getInitialTransaction(cuentas, categoriasActivas));
+
+    setNewCategory({
+      nombre: '',
+      tipo_movimiento: 'GASTO',
+      descripcion: '',
+    });
   }
 
   async function handleSubmitTransaction(event) {
@@ -394,7 +402,7 @@ export default function Transacciones({ usuario, onLogout }) {
     }
   }
 
-  return (
+   return (
       <div className="flex h-screen overflow-hidden bg-slate-50 text-slate-900">
         <Sidebar collapsed={sidebarCollapsed} />
 
@@ -468,8 +476,16 @@ export default function Transacciones({ usuario, onLogout }) {
                         return;
                       }
 
+                      setShowCategoryForm(false);
                       setEditingTransactionId(null);
-                      setNewTransaction(getInitialTransaction(cuentas, categoriasActivas));
+                      setNewCategory({
+                        nombre: '',
+                        tipo_movimiento: 'GASTO',
+                        descripcion: '',
+                      });
+                      setNewTransaction(
+                        getInitialTransaction(cuentas, categoriasActivas)
+                      );
                       setShowTransactionForm(true);
                     }}
                   >
@@ -512,93 +528,100 @@ export default function Transacciones({ usuario, onLogout }) {
                   </div>
                 </div>
 
-                {showTransactionForm && (
-                  <div className="mt-4 rounded-3xl border border-violet-100 bg-violet-50/60 p-4">
-                    <TransactionForm
-                      transaction={newTransaction}
-                      cuentas={cuentas}
-                      categorias={categoriasActivas}
-                      onChange={setNewTransaction}
-                      onSubmit={handleSubmitTransaction}
-                      maxDate={todayISO}
-                      onOpenCategoryForm={() => setShowCategoryForm((value) => !value)}
-                      submitLabel={
-                        editingTransactionId
-                          ? 'Actualizar transacción'
-                          : 'Guardar transacción'
-                      }
-                    />
+                {(showTransactionForm || showCategoryForm) && (
+                  <div className="mt-4 max-h-[42vh] space-y-4 overflow-y-auto rounded-3xl border border-slate-200 bg-slate-50/70 p-4">
+                    {showTransactionForm && (
+                      <div className="rounded-3xl border border-violet-100 bg-violet-50/60 p-4">
+                        <TransactionForm
+                          transaction={newTransaction}
+                          cuentas={cuentas}
+                          categorias={categoriasActivas}
+                          onChange={setNewTransaction}
+                          onSubmit={handleSubmitTransaction}
+                          maxDate={todayISO}
+                          onOpenCategoryForm={() =>
+                            setShowCategoryForm((value) => !value)
+                          }
+                          submitLabel={
+                            editingTransactionId
+                              ? 'Actualizar transacción'
+                              : 'Guardar transacción'
+                          }
+                        />
+                      </div>
+                    )}
+
+                    {showCategoryForm && (
+                      <form
+                        onSubmit={handleCreateCategory}
+                        className="grid grid-cols-1 gap-4 rounded-3xl border border-slate-200 bg-white p-4 md:grid-cols-3"
+                      >
+                        <div className="flex flex-col gap-2">
+                          <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            Nombre
+                          </label>
+                          <input
+                            type="text"
+                            value={newCategory.nombre}
+                            onChange={(e) =>
+                              setNewCategory({
+                                ...newCategory,
+                                nombre: e.target.value,
+                              })
+                            }
+                            placeholder="Ej: Transporte"
+                            className="h-11 rounded-2xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 outline-none transition focus:border-violet-400 focus:ring-4 focus:ring-violet-100"
+                          />
+                        </div>
+
+                        <div className="flex flex-col gap-2">
+                          <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            Tipo
+                          </label>
+                          <select
+                            value={newCategory.tipo_movimiento}
+                            onChange={(e) =>
+                              setNewCategory({
+                                ...newCategory,
+                                tipo_movimiento: e.target.value,
+                              })
+                            }
+                            className="h-11 rounded-2xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 outline-none transition focus:border-violet-400 focus:ring-4 focus:ring-violet-100"
+                          >
+                            <option value="GASTO">Gasto</option>
+                            <option value="INGRESO">Ingreso</option>
+                          </select>
+                        </div>
+
+                        <div className="flex flex-col gap-2">
+                          <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            Descripción
+                          </label>
+                          <input
+                            type="text"
+                            value={newCategory.descripcion}
+                            onChange={(e) =>
+                              setNewCategory({
+                                ...newCategory,
+                                descripcion: e.target.value,
+                              })
+                            }
+                            placeholder="Descripción opcional"
+                            className="h-11 rounded-2xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 outline-none transition focus:border-violet-400 focus:ring-4 focus:ring-violet-100"
+                          />
+                        </div>
+
+                        <div className="md:col-span-3">
+                          <button
+                            type="submit"
+                            className="rounded-2xl bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800"
+                          >
+                            Guardar categoría
+                          </button>
+                        </div>
+                      </form>
+                    )}
                   </div>
-                )}
-                {showCategoryForm && (
-                  <form
-                    onSubmit={handleCreateCategory}
-                    className="mt-4 grid grid-cols-1 gap-4 rounded-3xl border border-slate-200 bg-white p-4 md:grid-cols-3"
-                  >
-                    <div className="flex flex-col gap-2">
-                      <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        Nombre
-                      </label>
-                      <input
-                        type="text"
-                        value={newCategory.nombre}
-                        onChange={(e) =>
-                          setNewCategory({
-                            ...newCategory,
-                            nombre: e.target.value,
-                          })
-                        }
-                        placeholder="Ej: Transporte"
-                        className="h-11 rounded-2xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 outline-none transition focus:border-violet-400 focus:ring-4 focus:ring-violet-100"
-                      />
-                    </div>
-
-                    <div className="flex flex-col gap-2">
-                      <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        Tipo
-                      </label>
-                      <select
-                        value={newCategory.tipo_movimiento}
-                        onChange={(e) =>
-                          setNewCategory({
-                            ...newCategory,
-                            tipo_movimiento: e.target.value,
-                          })
-                        }
-                        className="h-11 rounded-2xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 outline-none transition focus:border-violet-400 focus:ring-4 focus:ring-violet-100"
-                      >
-                        <option value="GASTO">Gasto</option>
-                        <option value="INGRESO">Ingreso</option>
-                      </select>
-                    </div>
-
-                    <div className="flex flex-col gap-2">
-                      <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        Descripción
-                      </label>
-                      <input
-                        type="text"
-                        value={newCategory.descripcion}
-                        onChange={(e) =>
-                          setNewCategory({
-                            ...newCategory,
-                            descripcion: e.target.value,
-                          })
-                        }
-                        placeholder="Descripción opcional"
-                        className="h-11 rounded-2xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 outline-none transition focus:border-violet-400 focus:ring-4 focus:ring-violet-100"
-                      />
-                    </div>
-
-                    <div className="md:col-span-3">
-                      <button
-                        type="submit"
-                        className="rounded-2xl bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800"
-                      >
-                        Guardar categoría
-                      </button>
-                    </div>
-                  </form>
                 )}
               </div>
 
@@ -627,15 +650,19 @@ export default function Transacciones({ usuario, onLogout }) {
                                 amount={transaction.amount}
                                 date={transaction.date}
                                 type={transaction.type}
-                                onEdit={() => handleStartEditTransaction(transaction)}
-                                onDelete={() => setTransactionToDelete(transaction)}
+                                onEdit={() =>
+                                  handleStartEditTransaction(transaction)
+                                }
+                                onDelete={() =>
+                                  setTransactionToDelete(transaction)
+                                }
                               />
                             ))}
                           </div>
                         </section>
                       )
                     )}
-                </div>
+                  </div>
                 ) : (
                   <div className="grid h-full min-h-[260px] place-items-center rounded-2xl border border-dashed border-slate-200 px-4 text-center">
                     <div>
@@ -669,4 +696,4 @@ export default function Transacciones({ usuario, onLogout }) {
         />
       </div>
     );
-}
+  }
