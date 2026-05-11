@@ -1,10 +1,18 @@
 import "./App.css"
-import { Navigate, Route, Routes } from "react-router-dom"
-import { useState } from "react"
+import { useEffect, useState } from "react"
+import {
+  applyAppearanceSettings,
+  getInitialRouteFromPreferences,
+  getStoredAppearance,
+  getStoredPreferences,
+} from "./utils/preferences"
+import { Navigate, Route, Routes, useNavigate } from "react-router-dom"
 import api from "./services/api"
 import Transacciones from "./pages/Transacciones"
 import Cuentas from "./pages/Cuentas"
 import Metas from "./pages/Metas"
+import Estadisticas from "./pages/Estadisticas"
+import Configuracion from "./pages/Configuracion"
 
 function getStoredUser() {
   const localUser = localStorage.getItem("finora_usuario")
@@ -19,12 +27,22 @@ function App() {
   const [password, setPassword] = useState("")
   const [remember, setRemember] = useState(false)
   const [errorMessage, setErrorMessage] = useState("")
+  const navigate = useNavigate();
 
   const [usuario, setUsuario] = useState(getStoredUser)
 
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
     return Boolean(localStorage.getItem("finora_token"))
   })
+
+  const [preferencesVersion, setPreferencesVersion] = useState(0);
+
+  useEffect(() => {
+    applyAppearanceSettings(
+      getStoredAppearance(),
+      getStoredPreferences()
+    );
+  }, [preferencesVersion]);
 
   async function handleLogin(event) {
     event.preventDefault()
@@ -60,6 +78,7 @@ function App() {
       }
 
       setIsLoggedIn(true)
+      navigate(getInitialRouteFromPreferences(), { replace: true });
     } catch (error) {
       console.error("Error login:", error.response?.data || error)
 
@@ -184,7 +203,31 @@ function App() {
         }
       />
 
-      <Route path="/" element={<Navigate to="/transacciones" replace />} />
+      <Route
+        path="/estadisticas"
+        element={
+          <Estadisticas
+            usuario={usuario}
+            onLogout={handleLogout}
+          />
+        }
+      />
+
+      <Route
+        path="/configuracion"
+        element={
+          <Configuracion
+            usuario={usuario}
+            onLogout={handleLogout}
+            onSettingsChange={() => setPreferencesVersion((value) => value + 1)}
+          />
+        }
+      />
+
+      <Route
+        path="/"
+        element={<Navigate to={getInitialRouteFromPreferences()} replace />}
+      />
       <Route path="*" element={<Navigate to="/transacciones" replace />} />
     </Routes>
   )

@@ -42,3 +42,258 @@ textarea {
 button {
   cursor: pointer;
 }
+
+:root {
+  --finora-bg: #f8fafc;
+  --finora-surface: #ffffff;
+  --finora-text: #0f172a;
+  --finora-muted: #64748b;
+  --finora-accent: #6d28d9;
+  --finora-accent-soft: #ede9fe;
+  --finora-density-space: 1rem;
+}
+
+html[data-accent='Violeta'] {
+  --finora-accent: #6d28d9;
+  --finora-accent-soft: #ede9fe;
+}
+
+html[data-accent='Azul'] {
+  --finora-accent: #2563eb;
+  --finora-accent-soft: #dbeafe;
+}
+
+html[data-accent='Verde'] {
+  --finora-accent: #059669;
+  --finora-accent-soft: #d1fae5;
+}
+
+html[data-accent='Rosa'] {
+  --finora-accent: #db2777;
+  --finora-accent-soft: #fce7f3;
+}
+
+html[data-theme='Oscuro'] {
+  --finora-bg: #020617;
+  --finora-surface: #0f172a;
+  --finora-text: #f8fafc;
+  --finora-muted: #94a3b8;
+}
+
+@media (prefers-color-scheme: dark) {
+  html[data-theme='Sistema'] {
+    --finora-bg: #020617;
+    --finora-surface: #0f172a;
+    --finora-text: #f8fafc;
+    --finora-muted: #94a3b8;
+  }
+}
+
+html[data-density='Compacta'],
+html[data-compact='true'] {
+  --finora-density-space: 0.65rem;
+}
+
+body {
+  background: var(--finora-bg);
+  color: var(--finora-text);
+}
+
+/* =========================
+   FINORA THEME SYSTEM
+   Sobrescribe clases Tailwind fijas usando variables globales
+========================= */
+
+:root {
+  --finora-bg: #f8fafc;
+  --finora-surface: #ffffff;
+  --finora-surface-soft: #f1f5f9;
+  --finora-border: #e2e8f0;
+  --finora-text: #0f172a;
+  --finora-muted: #64748b;
+
+  --finora-accent: #6d28d9;
+  --finora-accent-hover: #5b21b6;
+  --finora-accent-soft: #ede9fe;
+  --finora-accent-border: #ddd6fe;
+  --finora-accent-text: #5b21b6;
+}
+
+/* Tema claro */
+html[data-theme='Claro'] {
+  --finora-bg: #f8fafc;
+  --finora-surface: #ffffff;
+  --finora-surface-soft: #f1f5f9;
+  --finora-border: #e2e8f0;
+  --finora-text: #0f172a;
+  --finora-muted: #64748b;
+}
+
+/* Tema oscuro */
+html[data-theme='Oscuro'] {
+  --finora-bg: #020617;
+  --finora-surface: #0f172a;
+  --finora-surface-soft: #1e293b;
+  --finora-border: #334155;
+  --finora-text: #f8fafc;
+  --finora-muted: #94a3b8;
+}
+
+/* Tema según sistema */
+@media (prefers-color-scheme: dark) {
+  html[data-theme='Sistema'] {
+    --finora-bg: #020617;
+    --finora-surface: #0f172a;
+    --finora-surface-soft: #1e293b;
+    --finora-border: #334155;
+    --finora-text: #f8fafc;
+    --finora-muted: #94a3b8;
+  }
+}
+
+@media (prefers-color-scheme: light) {
+  html[data-theme='Sistema'] {
+    --finora-bg: #f8fafc;
+    --finora-surface: #ffffff;
+    --finora-surface-soft: #f1f5f9;
+    --finora-border: #e2e8f0;
+    --finora-text: #0f172a;
+    --finora-muted: #64748b;
+  }
+}
+
+/* Colores principales */
+html[data-accent='Violeta'] {
+  --finora-accent: #6d28d9;
+  --finora-accent-hover: #5b21b6;
+  --finora-accent-soft: #ede9fe;
+  --finora-accent-border: #ddd6fe;
+  --finora-accent-text: #5b21b6;
+}
+
+html[data-accent='Azul'] {
+  --finora-accent: #2563eb;
+  --finora-accent-hover: #1d4ed8;
+  --finora-accent-soft: #dbeafe;
+  --finora-accent-border: #bfdbfe;
+  --finora-accent-text: #1d4ed8;
+}
+
+html[data-accent='Verde'] {
+  --finora-accent: #059669;
+  --finora-accent-hover: #047857;
+  --finora-accent-soft: #d1fae5;
+  --finora-accent-border: #a7f3d0;
+  --finora-accent-text: #047857;
+}
+
+html[data-accent='Rosa'] {
+  --finora-accent: #db2777;
+  --finora-accent-hover: #be185d;
+  --finora-accent-soft: #fce7f3;
+  --finora-accent-border: #fbcfe8;
+  --finora-accent-text: #be185d;
+}
+
+/* Fondo general */
+body {
+  background: var(--finora-bg) !important;
+  color: var(--finora-text) !important;
+}
+
+/* Fondos base usados en los módulos */
+html[data-theme] .bg-slate-50 {
+  background-color: var(--finora-bg) !important;
+}
+
+html[data-theme] .bg-white {
+  background-color: var(--finora-surface) !important;
+}
+
+html[data-theme] .bg-slate-100,
+html[data-theme] .bg-slate-50\/70 {
+  background-color: var(--finora-surface-soft) !important;
+}
+
+/* Textos */
+html[data-theme] .text-slate-950,
+html[data-theme] .text-slate-900,
+html[data-theme] .text-slate-800,
+html[data-theme] .text-slate-700 {
+  color: var(--finora-text) !important;
+}
+
+html[data-theme] .text-slate-600,
+html[data-theme] .text-slate-500,
+html[data-theme] .text-slate-400 {
+  color: var(--finora-muted) !important;
+}
+
+/* Bordes */
+html[data-theme] .border-slate-200,
+html[data-theme] .border-slate-100 {
+  border-color: var(--finora-border) !important;
+}
+
+/* Inputs */
+html[data-theme] input,
+html[data-theme] select,
+html[data-theme] textarea {
+  background-color: var(--finora-surface) !important;
+  color: var(--finora-text) !important;
+  border-color: var(--finora-border) !important;
+}
+
+html[data-theme] input::placeholder,
+html[data-theme] textarea::placeholder {
+  color: var(--finora-muted) !important;
+}
+
+/* Color principal: reemplaza clases violet por el accent elegido */
+html[data-accent] .bg-violet-700,
+html[data-accent] .bg-violet-600 {
+  background-color: var(--finora-accent) !important;
+}
+
+html[data-accent] .hover\:bg-violet-800:hover,
+html[data-accent] .hover\:bg-violet-700:hover {
+  background-color: var(--finora-accent-hover) !important;
+}
+
+html[data-accent] .text-violet-950,
+html[data-accent] .text-violet-900,
+html[data-accent] .text-violet-800,
+html[data-accent] .text-violet-700,
+html[data-accent] .text-violet-600,
+html[data-accent] .text-violet-500 {
+  color: var(--finora-accent-text) !important;
+}
+
+html[data-accent] .bg-violet-50,
+html[data-accent] .bg-violet-50\/60,
+html[data-accent] .bg-violet-100 {
+  background-color: var(--finora-accent-soft) !important;
+}
+
+html[data-accent] .border-violet-100,
+html[data-accent] .border-violet-200 {
+  border-color: var(--finora-accent-border) !important;
+}
+
+html[data-accent] .ring-violet-100 {
+  --tw-ring-color: var(--finora-accent-soft) !important;
+}
+
+html[data-accent] .focus\:border-violet-400:focus {
+  border-color: var(--finora-accent) !important;
+}
+
+/* Barras de progreso violet */
+html[data-accent] .bg-violet-500 {
+  background-color: var(--finora-accent) !important;
+}
+
+/* Sidebar activo */
+html[data-accent] .shadow-violet-200 {
+  --tw-shadow-color: var(--finora-accent-border) !important;
+}

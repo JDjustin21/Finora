@@ -121,9 +121,12 @@ body {
 .login-form input {
   height: 45px;
   border-radius: 10px;
-  border: none;
+  border: 1px solid rgba(79, 55, 138, 0.2);
   padding: 10px;
   outline: none;
+
+  background: rgba(255, 255, 255, 0.9);
+  color: #1a1a1a;
 }
 
 .login-form button {

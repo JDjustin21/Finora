@@ -4,8 +4,20 @@ const moneyFormatter = new Intl.NumberFormat('es-CO', {
   maximumFractionDigits: 0,
 });
 
+import {
+  convertFromCOP,
+  getSelectedCurrencyConfig,
+} from './preferences';
+
 export function formatMoney(value) {
-  return moneyFormatter.format(Number(value || 0));
+  const currencyConfig = getSelectedCurrencyConfig();
+  const convertedValue = convertFromCOP(value, currencyConfig.currency);
+
+  return new Intl.NumberFormat(currencyConfig.locale, {
+    style: 'currency',
+    currency: currencyConfig.currency,
+    maximumFractionDigits: currencyConfig.currency === 'COP' ? 0 : 2,
+  }).format(convertedValue);
 }
 
 export function formatDate(value) {
