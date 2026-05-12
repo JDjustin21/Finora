@@ -14,6 +14,8 @@ import bcrypt
 
 from modules.cuentas.cuentas_routes import register_cuentas_routes
 from modules.metas.metas_routes import register_metas_routes
+from modules.proyecciones.proyecciones_routes import register_proyecciones_routes
+
 # --------------------------
 # Configuración básica
 # --------------------------
@@ -381,6 +383,13 @@ register_cuentas_routes(
 )
 
 register_metas_routes(
+    api=api,
+    db=db,
+    tabla_clases=tabla_clases,
+    jwt_required=jwt_required
+)
+
+register_proyecciones_routes(
     api=api,
     db=db,
     tabla_clases=tabla_clases,

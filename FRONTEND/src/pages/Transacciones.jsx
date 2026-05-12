@@ -7,6 +7,16 @@ import TransactionForm from '../components/TransactionForm';
 import ConfirmModal from '../components/ConfirmModal';
 import api from '../services/api';
 import { formatMoney, normalizeText } from '../utils/formatters';
+import ProjectionForm from '../components/ProjectionForm';
+import ProjectionItem from '../components/ProjectionItem';
+import ProjectionSummaryCard from '../components/ProjectionSummaryCard';
+import {
+  confirmProjection,
+  createProjection,
+  getProjections,
+  rejectProjection,
+  updateProjection,
+} from '../services/projectionsService';
 import {
   buildMap,
   buildSummaryData,
@@ -22,6 +32,7 @@ import {
 } from '../utils/finance';
 import { useNavigate } from 'react-router-dom';
 
+
 const filters = ['Todos', 'Ingresos', 'Gastos'];
 const periods = ['Todos', 'Diario', 'Semanal', 'Mensual'];
 
@@ -32,6 +43,16 @@ function getStoredUser() {
   const storedUser = localUser || sessionUser;
 
   return storedUser ? JSON.parse(storedUser) : null;
+}
+
+function getInitialProjection(cuentas = [], categorias = []) {
+  return {
+    id_cuenta: cuentas[0]?.id_cuenta || '',
+    id_categoria: categorias[0]?.id_categoria || '',
+    monto: '',
+    fecha_programada: new Date().toISOString().slice(0, 10),
+    descripcion: '',
+  };
 }
 
 export default function Transacciones({ usuario, onLogout }) {
@@ -51,9 +72,17 @@ export default function Transacciones({ usuario, onLogout }) {
 
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+
+  const [activeTab, setActiveTab] = useState('historial');
   const [showTransactionForm, setShowTransactionForm] = useState(false);
   const [editingTransactionId, setEditingTransactionId] = useState(null);
   const [transactionToDelete, setTransactionToDelete] = useState(null);
+
+  const [projections, setProjections] = useState([]);
+  const [showProjectionForm, setShowProjectionForm] = useState(false);
+  const [editingProjectionId, setEditingProjectionId] = useState(null);
+  const [projectionToConfirm, setProjectionToConfirm] = useState(null);
+  const [projectionToReject, setProjectionToReject] = useState(null);
 
   const [showCategoryForm, setShowCategoryForm] = useState(false);
   const [newCategory, setNewCategory] = useState({
@@ -65,6 +94,14 @@ export default function Transacciones({ usuario, onLogout }) {
   const [newTransaction, setNewTransaction] = useState(
     getInitialTransaction()
   );
+
+  const [newProjection, setNewProjection] = useState({
+    id_cuenta: '',
+    id_categoria: '',
+    monto: '',
+    fecha_programada: '',
+    descripcion: '',
+  });
 
   const userFullName = currentUser
     ? `${currentUser.nombres} ${currentUser.apellidos}`
@@ -148,6 +185,36 @@ export default function Transacciones({ usuario, onLogout }) {
     return groupTransactionsByDay(filteredTransactions);
   }, [filteredTransactions]);
 
+  const projectionSummary = useMemo(() => {
+    const pendingProjections = projections.filter((projection) => {
+      return (
+        projection.estado === 'PENDIENTE' ||
+        projection.estado === 'REPROGRAMADA'
+      );
+    });
+
+    const projectedIncome = pendingProjections
+      .filter((projection) => projection.tipo_movimiento === 'INGRESO')
+      .reduce((total, projection) => total + Number(projection.monto || 0), 0);
+
+    const projectedExpenses = pendingProjections
+      .filter((projection) => projection.tipo_movimiento === 'GASTO')
+      .reduce((total, projection) => total + Number(projection.monto || 0), 0);
+
+    return {
+      pendingCount: pendingProjections.length,
+      projectedIncome,
+      projectedExpenses,
+      projectedBalance: projectedIncome - projectedExpenses,
+    };
+  }, [projections]);
+
+  const pendingProjectionsToday = useMemo(() => {
+    return projections.filter((projection) => {
+      return projection.es_para_hoy || projection.esta_vencida;
+    });
+  }, [projections]);
+
   async function loadFinancialData() {
     if (!currentUser?.id_usuario) return;
 
@@ -160,11 +227,13 @@ export default function Transacciones({ usuario, onLogout }) {
         categoriasResponse,
         transaccionesResponse,
         metasResponse,
+        projectionsResponse,
       ] = await Promise.all([
         api.get('/finanzas/cuentas/'),
         api.get('/categorias/'),
         api.get('/transacciones/'),
         api.get('/finanzas/metas/'),
+        getProjections(),
       ]);
 
       const cuentasUsuario = cuentasResponse.data;
@@ -182,9 +251,14 @@ export default function Transacciones({ usuario, onLogout }) {
       setCategorias(categoriasUsuario);
       setTransacciones(transaccionesResponse.data);
       setMetas(metasUsuario);
+      setProjections(projectionsResponse.data);
 
       setNewTransaction(
         getInitialTransaction(cuentasUsuario, categoriasUsuario)
+      );
+
+      setNewProjection(
+        getInitialProjection(cuentasUsuario, categoriasUsuario)
       );
     } catch (error) {
       console.error('Error cargando datos financieros:', error);
@@ -317,6 +391,126 @@ export default function Transacciones({ usuario, onLogout }) {
     }
   }
 
+  function resetProjectionForm() {
+    setShowProjectionForm(false);
+    setShowCategoryForm(false);
+    setEditingProjectionId(null);
+
+    setNewProjection(getInitialProjection(cuentas, categoriasActivas));
+
+    setNewCategory({
+      nombre: '',
+      tipo_movimiento: 'GASTO',
+      descripcion: '',
+    });
+  }
+
+  async function handleSubmitProjection(event) {
+    event.preventDefault();
+    setErrorMessage('');
+
+    if (
+      !newProjection.id_cuenta ||
+      !newProjection.id_categoria ||
+      !newProjection.monto ||
+      !newProjection.fecha_programada
+    ) {
+      setErrorMessage('Completa cuenta, categoría, monto y fecha programada.');
+      return;
+    }
+
+    const monto = Number(newProjection.monto);
+
+    if (Number.isNaN(monto) || monto <= 0) {
+      setErrorMessage('El monto proyectado debe ser mayor a cero.');
+      return;
+    }
+
+    if (newProjection.fecha_programada < todayISO) {
+      setErrorMessage('La fecha programada no puede ser anterior a hoy.');
+      return;
+    }
+
+    const payload = {
+      id_cuenta: Number(newProjection.id_cuenta),
+      id_categoria: Number(newProjection.id_categoria),
+      monto,
+      fecha_programada: newProjection.fecha_programada,
+      descripcion: newProjection.descripcion,
+    };
+
+    try {
+      if (editingProjectionId) {
+        await updateProjection(editingProjectionId, payload);
+      } else {
+        await createProjection(payload);
+      }
+
+      resetProjectionForm();
+      setActiveTab('proyecciones');
+      await loadFinancialData();
+    } catch (error) {
+      console.error('Error guardando proyección:', error.response?.data || error);
+
+      setErrorMessage(
+        error.response?.data?.message || 'No se pudo guardar la proyección.'
+      );
+    }
+  }
+
+  function handleStartEditProjection(projection) {
+    setErrorMessage('');
+    setEditingProjectionId(projection.id_proyeccion);
+
+    setNewProjection({
+      id_cuenta: projection.id_cuenta,
+      id_categoria: projection.id_categoria,
+      monto: Math.abs(Number(projection.monto || 0)),
+      fecha_programada: projection.fecha_programada,
+      descripcion: projection.descripcion || '',
+    });
+
+    setShowTransactionForm(false);
+    setShowProjectionForm(true);
+    setActiveTab('proyecciones');
+  }
+
+  async function handleConfirmProjection(idProjection) {
+    setErrorMessage('');
+
+    try {
+      await confirmProjection(idProjection);
+
+      setProjectionToConfirm(null);
+      await loadFinancialData();
+      setActiveTab('historial');
+    } catch (error) {
+      console.error('Error confirmando proyección:', error.response?.data || error);
+
+      setErrorMessage(
+        error.response?.data?.message || 'No se pudo confirmar la proyección.'
+      );
+    }
+  }
+
+  async function handleRejectProjection(idProjection) {
+    setErrorMessage('');
+
+    try {
+      await rejectProjection(idProjection);
+
+      setProjectionToReject(null);
+      await loadFinancialData();
+      setActiveTab('proyecciones');
+    } catch (error) {
+      console.error('Error rechazando proyección:', error.response?.data || error);
+
+      setErrorMessage(
+        error.response?.data?.message || 'No se pudo rechazar la proyección.'
+      );
+    }
+  }
+
   function handleStartEditTransaction(transaction) {
     setErrorMessage('');
     setEditingTransactionId(transaction.id_transaccion);
@@ -387,6 +581,11 @@ export default function Transacciones({ usuario, onLogout }) {
         id_categoria: response.data.id_categoria,
       }));
 
+      setNewProjection((prev) => ({
+        ...prev,
+        id_categoria: response.data.id_categoria,
+      }));
+
       setNewCategory({
         nombre: '',
         tipo_movimiento: 'GASTO',
@@ -414,6 +613,11 @@ export default function Transacciones({ usuario, onLogout }) {
             placeholder="Buscar transacciones, metas o reportes..."
             onLogout={onLogout}
             onToggleSidebar={() => setSidebarCollapsed((value) => !value)}
+            notifications={pendingProjectionsToday}
+            onNotificationClick={(projection) => {
+              setActiveTab('proyecciones');
+              setProjectionToConfirm(projection);
+            }}
           />
 
           <main className="flex min-h-0 flex-1 flex-col gap-6 overflow-hidden px-4 py-5 lg:px-8">
@@ -428,8 +632,9 @@ export default function Transacciones({ usuario, onLogout }) {
                 </h1>
 
                 <p className="max-w-2xl text-sm leading-6 text-slate-500">
-                  Consulta, filtra, registra, edita y elimina tus movimientos
-                  financieros sin perder el control del historial.
+                  {activeTab === 'historial'
+                    ? 'Consulta, filtra, registra, edita y elimina tus movimientos financieros reales.'
+                    : 'Planifica ingresos y gastos futuros sin afectar todavía tus saldos reales.'}
                 </p>
               </div>
             </section>
@@ -441,56 +646,117 @@ export default function Transacciones({ usuario, onLogout }) {
             )}
 
             <section className="grid shrink-0 grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-              {summaryData.map((card) => (
-                <SummaryCard
-                  key={card.id}
-                  title={card.title}
-                  amount={card.amount}
-                  subtitle={card.subtitle}
-                  variant={card.variant}
-                />
-              ))}
+              {activeTab === 'historial' ? (
+                summaryData.map((card) => (
+                  <SummaryCard
+                    key={card.id}
+                    title={card.title}
+                    amount={card.amount}
+                    subtitle={card.subtitle}
+                    variant={card.variant}
+                  />
+                ))
+              ) : (
+                <>
+                  <ProjectionSummaryCard
+                    title="Proyecciones pendientes"
+                    value={projectionSummary.pendingCount}
+                    subtitle={`${pendingProjectionsToday.length} requieren revisión hoy o están vencidas.`}
+                    tone="violet"
+                  />
+
+                  <ProjectionSummaryCard
+                    title="Ingresos proyectados"
+                    value={formatMoney(projectionSummary.projectedIncome)}
+                    subtitle="Ingresos futuros que aún no afectan tu balance."
+                    tone="emerald"
+                  />
+
+                  <ProjectionSummaryCard
+                    title="Gastos proyectados"
+                    value={formatMoney(projectionSummary.projectedExpenses)}
+                    subtitle="Gastos futuros pendientes de confirmación."
+                    tone="rose"
+                  />
+
+                  <ProjectionSummaryCard
+                    title="Balance proyectado"
+                    value={formatMoney(projectionSummary.projectedBalance)}
+                    subtitle="Diferencia estimada entre ingresos y gastos proyectados."
+                    tone="blue"
+                  />
+                </>
+              )}
             </section>
 
             <section className="flex min-h-0 flex-1 flex-col rounded-3xl border border-slate-200 bg-white shadow-sm">
               <div className="shrink-0 border-b border-slate-200 px-4 py-4 sm:px-5">
                 <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-                  <button
-                    type="button"
-                    className="inline-flex items-center justify-center rounded-2xl bg-violet-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-violet-800"
-                    onClick={() => {
-                      if (cuentas.length === 0) {
-                        const shouldGoToAccounts = window.confirm(
-                          'Necesitas crear una cuenta antes de registrar transacciones. ¿Quieres ir al módulo de Cuentas?'
-                        );
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      className="inline-flex items-center justify-center rounded-2xl bg-violet-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-violet-800"
+                      onClick={() => {
+                        if (cuentas.length === 0) {
+                          const shouldGoToAccounts = window.confirm(
+                            'Necesitas crear una cuenta antes de registrar transacciones. ¿Quieres ir al módulo de Cuentas?'
+                          );
 
-                        if (shouldGoToAccounts) {
-                          navigate('/cuentas');
+                          if (shouldGoToAccounts) {
+                            navigate('/cuentas');
+                          }
+
+                          return;
                         }
 
-                        return;
-                      }
+                        if (showTransactionForm) {
+                          resetTransactionForm();
+                          return;
+                        }
 
-                      if (showTransactionForm) {
-                        resetTransactionForm();
-                        return;
-                      }
+                        setShowProjectionForm(false);
+                        setEditingProjectionId(null);
+                        setEditingTransactionId(null);
+                        setNewTransaction(getInitialTransaction(cuentas, categoriasActivas));
+                        setShowTransactionForm(true);
+                        setActiveTab('historial');
+                      }}
+                    >
+                      {showTransactionForm ? 'Cancelar' : '+ Nueva transacción'}
+                    </button>
 
-                      setShowCategoryForm(false);
-                      setEditingTransactionId(null);
-                      setNewCategory({
-                        nombre: '',
-                        tipo_movimiento: 'GASTO',
-                        descripcion: '',
-                      });
-                      setNewTransaction(
-                        getInitialTransaction(cuentas, categoriasActivas)
-                      );
-                      setShowTransactionForm(true);
-                    }}
-                  >
-                    {showTransactionForm ? 'Cancelar' : '+ Nueva transacción'}
-                  </button>
+                    <button
+                      type="button"
+                      className="inline-flex items-center justify-center rounded-2xl border border-violet-200 bg-violet-50 px-4 py-2.5 text-sm font-semibold text-violet-700 shadow-sm transition hover:bg-violet-100"
+                      onClick={() => {
+                        if (cuentas.length === 0) {
+                          const shouldGoToAccounts = window.confirm(
+                            'Necesitas crear una cuenta antes de crear proyecciones. ¿Quieres ir al módulo de Cuentas?'
+                          );
+
+                          if (shouldGoToAccounts) {
+                            navigate('/cuentas');
+                          }
+
+                          return;
+                        }
+
+                        if (showProjectionForm) {
+                          resetProjectionForm();
+                          return;
+                        }
+
+                        setShowTransactionForm(false);
+                        setEditingTransactionId(null);
+                        setEditingProjectionId(null);
+                        setNewProjection(getInitialProjection(cuentas, categoriasActivas));
+                        setShowProjectionForm(true);
+                        setActiveTab('proyecciones');
+                      }}
+                    >
+                      {showProjectionForm ? 'Cancelar proyección' : '+ Nueva proyección'}
+                    </button>
+                  </div>
 
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 xl:w-auto">
                     <select
@@ -528,7 +794,7 @@ export default function Transacciones({ usuario, onLogout }) {
                   </div>
                 </div>
 
-                {(showTransactionForm || showCategoryForm) && (
+                {(showTransactionForm || showProjectionForm || showCategoryForm) && (
                   <div className="mt-4 max-h-[42vh] space-y-4 overflow-y-auto rounded-3xl border border-slate-200 bg-slate-50/70 p-4">
                     {showTransactionForm && (
                       <div className="rounded-3xl border border-violet-100 bg-violet-50/60 p-4">
@@ -546,6 +812,25 @@ export default function Transacciones({ usuario, onLogout }) {
                             editingTransactionId
                               ? 'Actualizar transacción'
                               : 'Guardar transacción'
+                          }
+                        />
+                      </div>
+                    )}
+
+                    {showProjectionForm && (
+                      <div className="rounded-3xl border border-blue-100 bg-blue-50/60 p-4">
+                        <ProjectionForm
+                          projection={newProjection}
+                          cuentas={cuentas}
+                          categorias={categoriasActivas}
+                          onChange={setNewProjection}
+                          onSubmit={handleSubmitProjection}
+                          minDate={todayISO}
+                          onOpenCategoryForm={() => setShowCategoryForm((value) => !value)}
+                          submitLabel={
+                            editingProjectionId
+                              ? 'Actualizar proyección'
+                              : 'Guardar proyección'
                           }
                         />
                       </div>
@@ -625,52 +910,101 @@ export default function Transacciones({ usuario, onLogout }) {
                 )}
               </div>
 
+              <div className="shrink-0 border-b border-slate-200 px-4 py-3 sm:px-5">
+                <div className="inline-flex rounded-2xl bg-slate-100 p-1">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('historial')}
+                    className={
+                      activeTab === 'historial'
+                        ? 'rounded-xl bg-white px-4 py-2 text-sm font-semibold text-slate-950 shadow-sm'
+                        : 'rounded-xl px-4 py-2 text-sm font-semibold text-slate-500 transition hover:text-slate-900'
+                    }
+                  >
+                    Historial
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('proyecciones')}
+                    className={
+                      activeTab === 'proyecciones'
+                        ? 'rounded-xl bg-white px-4 py-2 text-sm font-semibold text-slate-950 shadow-sm'
+                        : 'rounded-xl px-4 py-2 text-sm font-semibold text-slate-500 transition hover:text-slate-900'
+                    }
+                  >
+                    Proyecciones
+                  </button>
+                </div>
+              </div>
+
               <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5">
                 {loading ? (
                   <div className="grid h-full min-h-[260px] place-items-center rounded-2xl border border-dashed border-slate-200 text-sm font-medium text-slate-400">
                     Cargando datos financieros...
                   </div>
-                ) : filteredTransactions.length > 0 ? (
-                  <div className="space-y-6">
-                    {Object.entries(groupedTransactions).map(
-                      ([dayLabel, transactions]) => (
-                        <section key={dayLabel} className="space-y-3">
-                          <div className="sticky top-0 z-10 -mx-1 bg-white/90 px-1 py-1 backdrop-blur">
-                            <h2 className="text-xs font-semibold uppercase tracking-[0.22em] text-violet-500">
-                              {dayLabel}
-                            </h2>
-                          </div>
+                ) : activeTab === 'historial' ? (
+                  filteredTransactions.length > 0 ? (
+                    <div className="space-y-6">
+                      {Object.entries(groupedTransactions).map(
+                        ([dayLabel, transactions]) => (
+                          <section key={dayLabel} className="space-y-3">
+                            <div className="sticky top-0 z-10 -mx-1 bg-white/90 px-1 py-1 backdrop-blur">
+                              <h2 className="text-xs font-semibold uppercase tracking-[0.22em] text-violet-500">
+                                {dayLabel}
+                              </h2>
+                            </div>
 
-                          <div className="space-y-3">
-                            {transactions.map((transaction) => (
-                              <TransactionItem
-                                key={transaction.id_transaccion}
-                                title={transaction.title}
-                                description={`${transaction.description} · ${transaction.cuentaNombre}`}
-                                amount={transaction.amount}
-                                date={transaction.date}
-                                type={transaction.type}
-                                onEdit={() =>
-                                  handleStartEditTransaction(transaction)
-                                }
-                                onDelete={() =>
-                                  setTransactionToDelete(transaction)
-                                }
-                              />
-                            ))}
-                          </div>
-                        </section>
-                      )
-                    )}
+                            <div className="space-y-3">
+                              {transactions.map((transaction) => (
+                                <TransactionItem
+                                  key={transaction.id_transaccion}
+                                  title={transaction.title}
+                                  description={`${transaction.description} · ${transaction.cuentaNombre}`}
+                                  amount={transaction.amount}
+                                  date={transaction.date}
+                                  type={transaction.type}
+                                  onEdit={() => handleStartEditTransaction(transaction)}
+                                  onDelete={() => setTransactionToDelete(transaction)}
+                                />
+                              ))}
+                            </div>
+                          </section>
+                        )
+                      )}
+                    </div>
+                  ) : (
+                    <div className="grid h-full min-h-[260px] place-items-center rounded-2xl border border-dashed border-slate-200 px-4 text-center">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-700">
+                          No se encontraron transacciones
+                        </p>
+                        <p className="mt-1 text-sm text-slate-400">
+                          Ajusta los filtros o registra una nueva transacción.
+                        </p>
+                      </div>
+                    </div>
+                  )
+                ) : projections.length > 0 ? (
+                  <div className="space-y-3">
+                    {projections.map((projection) => (
+                      <ProjectionItem
+                        key={projection.id_proyeccion}
+                        projection={projection}
+                        onEdit={() => handleStartEditProjection(projection)}
+                        onConfirm={() => setProjectionToConfirm(projection)}
+                        onReject={() => setProjectionToReject(projection)}
+                      />
+                    ))}
                   </div>
                 ) : (
                   <div className="grid h-full min-h-[260px] place-items-center rounded-2xl border border-dashed border-slate-200 px-4 text-center">
                     <div>
                       <p className="text-sm font-semibold text-slate-700">
-                        No se encontraron transacciones
+                        No tienes proyecciones registradas
                       </p>
                       <p className="mt-1 text-sm text-slate-400">
-                        Ajusta los filtros o registra una nueva transacción.
+                        Crea una proyección para planear ingresos o gastos futuros.
                       </p>
                     </div>
                   </div>
@@ -691,6 +1025,35 @@ export default function Transacciones({ usuario, onLogout }) {
           onConfirm={() => {
             if (transactionToDelete) {
               handleDeleteTransaction(transactionToDelete.id_transaccion);
+            }
+          }}
+        />
+        <ConfirmModal
+          open={Boolean(projectionToConfirm)}
+          title="Confirmar proyección"
+          message={`La proyección "${projectionToConfirm?.categoria_nombre}" se convertirá en una transacción real y empezará a afectar tus saldos.`}
+          confirmLabel="Confirmar"
+          cancelLabel="Cancelar"
+          variant="default"
+          onCancel={() => setProjectionToConfirm(null)}
+          onConfirm={() => {
+            if (projectionToConfirm) {
+              handleConfirmProjection(projectionToConfirm.id_proyeccion);
+            }
+          }}
+        />
+
+        <ConfirmModal
+          open={Boolean(projectionToReject)}
+          title="Rechazar proyección"
+          message={`La proyección "${projectionToReject?.categoria_nombre}" será marcada como rechazada y no afectará tus saldos.`}
+          confirmLabel="Rechazar"
+          cancelLabel="Cancelar"
+          variant="danger"
+          onCancel={() => setProjectionToReject(null)}
+          onConfirm={() => {
+            if (projectionToReject) {
+              handleRejectProjection(projectionToReject.id_proyeccion);
             }
           }}
         />
