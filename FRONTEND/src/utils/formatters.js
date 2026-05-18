@@ -1,23 +1,29 @@
-const moneyFormatter = new Intl.NumberFormat('es-CO', {
-  style: 'currency',
-  currency: 'COP',
-  maximumFractionDigits: 0,
-});
-
 import {
   convertFromCOP,
   getSelectedCurrencyConfig,
 } from './preferences';
 
-export function formatMoney(value) {
+export function formatMoney(value, options = {}) {
   const currencyConfig = getSelectedCurrencyConfig();
-  const convertedValue = convertFromCOP(value, currencyConfig.currency);
+  const currencyCode = currencyConfig.currency;
+  const convertedValue = convertFromCOP(value, currencyCode);
 
-  return new Intl.NumberFormat(currencyConfig.locale, {
+  const formattedValue = new Intl.NumberFormat(currencyConfig.locale, {
     style: 'currency',
-    currency: currencyConfig.currency,
-    maximumFractionDigits: currencyConfig.currency === 'COP' ? 0 : 2,
+    currency: currencyCode,
+    minimumFractionDigits: currencyCode === 'COP' ? 0 : 2,
+    maximumFractionDigits: currencyCode === 'COP' ? 0 : 2,
   }).format(convertedValue);
+
+  if (options.showCurrencyCode === false) {
+    return formattedValue;
+  }
+
+  return `${formattedValue} ${currencyCode}`;
+}
+
+export function getSelectedCurrencyCode() {
+  return getSelectedCurrencyConfig().currency;
 }
 
 export function formatDate(value) {

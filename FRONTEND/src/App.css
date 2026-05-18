@@ -93,12 +93,13 @@ body {
 }
 
 .right {
+  position: relative;
+  overflow: hidden;
   background: linear-gradient(#eadcffcc, #8c8499cc);
   display: flex;
   justify-content: center;
   align-items: center;
 }
-
 .login-form {
   width: 80%;
   max-width: 350px;
@@ -172,14 +173,47 @@ body {
 }
 
 .logo {
-  width: 70px;
-  height: 70px;
-  border-radius: 50%;
-  background: #4a2881;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  font-weight: bold;
-  font-size: 24px;
-  color: white;
+  width: auto;
+  height: auto;
+  background: transparent;
+  border-radius: 0;
+  display: block;
+  margin-bottom: 20px;
 }
+
+.logo img {
+  width: 120px;
+  height: auto;
+  object-fit: contain;
+  display: block;
+}
+
+.form-error,
+.form-success {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.form-error {
+  background: rgba(255, 235, 238, 0.95);
+  color: #8a1f2d;
+  border: 1px solid rgba(138, 31, 45, 0.25);
+}
+
+.form-success {
+  background: rgba(232, 245, 233, 0.95);
+  color: #256029;
+  border: 1px solid rgba(37, 96, 41, 0.25);
+}
+
+.register {
+  user-select: none;
+}
+
+.register:hover {
+  text-decoration: underline;
+}
+

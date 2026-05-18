@@ -832,15 +832,15 @@ export default function Estadisticas({ usuario, onLogout }) {
                                     <div className="flex items-start justify-between gap-4">
                                         <div>
                                             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-violet-600">
-                                            Evolución financiera
+                                                Evolución financiera
                                             </p>
 
                                             <h2 className="text-lg font-semibold text-slate-950">
-                                            Ingresos, gastos y balance
+                                                Ingresos, gastos y balance
                                             </h2>
 
                                             <p className="mt-1 text-sm leading-6 text-slate-500">
-                                            Muestra cómo cambian tus ingresos, gastos y balance según el período seleccionado.
+                                                Muestra cómo cambian tus ingresos, gastos y balance según el período seleccionado.
                                             </p>
                                         </div>
 
@@ -901,11 +901,11 @@ export default function Estadisticas({ usuario, onLogout }) {
                                     <div className="flex items-start justify-between gap-4">
                                         <div>
                                             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-violet-600">
-                                            Distribución de gastos
+                                                Distribución de gastos
                                             </p>
 
                                             <h2 className="mt-2 text-lg font-semibold text-slate-950">
-                                            ¿En qué gastas más?
+                                                ¿En qué gastas más?
                                             </h2>
                                         </div>
 
@@ -944,7 +944,7 @@ export default function Estadisticas({ usuario, onLogout }) {
                                                 })
                                             }
                                         />
-                                        </div>
+                                    </div>
 
                                     <div className="mt-5 h-[240px]">
                                         <ResponsiveContainer width="100%" height="100%">
@@ -999,11 +999,11 @@ export default function Estadisticas({ usuario, onLogout }) {
                                     <div className="flex items-start justify-between gap-4">
                                         <div>
                                             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-violet-600">
-                                            Comparativo por período
+                                                Comparativo por período
                                             </p>
 
                                             <h2 className="mt-2 text-lg font-semibold text-slate-950">
-                                            Ingresos vs gastos
+                                                Ingresos vs gastos
                                             </h2>
                                         </div>
 
@@ -1042,7 +1042,7 @@ export default function Estadisticas({ usuario, onLogout }) {
                                                 })
                                             }
                                         />
-                                        </div>
+                                    </div>
 
                                     <div className="mt-5 h-[300px]">
                                         <ResponsiveContainer width="100%" height="100%">
@@ -1063,13 +1063,13 @@ export default function Estadisticas({ usuario, onLogout }) {
                                     <div className="flex items-start justify-between gap-4">
                                         <div>
                                             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-violet-600">
-                                            Progreso de metas
+                                                Progreso de metas
                                             </p>
 
                                             <h2 className="mt-2 text-lg font-semibold text-slate-950">
-                                            {selectedAccount
-                                                ? `Aportes desde ${selectedAccount.nombre}`
-                                                : 'Avance consolidado'}
+                                                {selectedAccount
+                                                    ? `Aportes desde ${selectedAccount.nombre}`
+                                                    : 'Avance consolidado'}
                                             </h2>
                                         </div>
 
@@ -1157,15 +1157,15 @@ export default function Estadisticas({ usuario, onLogout }) {
                                     <div className="flex items-start justify-between gap-4">
                                         <div>
                                             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-violet-600">
-                                            Proyección financiera
+                                                Proyección financiera
                                             </p>
 
                                             <h2 className="mt-2 text-lg font-semibold text-slate-950">
-                                            Tendencia estimada
+                                                Tendencia estimada
                                             </h2>
 
                                             <p className="mt-2 text-sm leading-6 text-slate-500">
-                                            Esta proyección usa un promedio móvil simple de los últimos períodos.
+                                                Esta proyección usa un promedio móvil simple de los últimos períodos.
                                             </p>
                                         </div>
 

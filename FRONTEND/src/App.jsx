@@ -14,6 +14,8 @@ import Metas from "./pages/Metas"
 import Estadisticas from "./pages/Estadisticas"
 import Configuracion from "./pages/Configuracion"
 import LoadingScreen from "./components/LoadingScreen"
+import logo from "./assets/logologin.png"
+import { preloadCurrencyRates } from './services/currencyService';
 
 function getStoredUser() {
   const localUser = localStorage.getItem("finora_usuario")
@@ -27,9 +29,19 @@ function App() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [remember, setRemember] = useState(false)
+
+  const [nombres, setNombres] = useState("")
+  const [apellidos, setApellidos] = useState("")
+  const [registerEmail, setRegisterEmail] = useState("")
+  const [registerPassword, setRegisterPassword] = useState("")
+
+  const [isRegisterMode, setIsRegisterMode] = useState(false)
   const [errorMessage, setErrorMessage] = useState("")
+  const [successMessage, setSuccessMessage] = useState("")
   const [authLoading, setAuthLoading] = useState(false)
-  const navigate = useNavigate();
+  const [formTransitionLoading, setFormTransitionLoading] = useState(false)
+
+  const navigate = useNavigate()
 
   const [usuario, setUsuario] = useState(getStoredUser)
 
@@ -37,18 +49,47 @@ function App() {
     return Boolean(localStorage.getItem("finora_token"))
   })
 
-  const [preferencesVersion, setPreferencesVersion] = useState(0);
+  const [preferencesVersion, setPreferencesVersion] = useState(0)
+
+  useEffect(() => {
+    preloadCurrencyRates();
+  }, []);
 
   useEffect(() => {
     applyAppearanceSettings(
       getStoredAppearance(),
       getStoredPreferences()
-    );
-  }, [preferencesVersion]);
+    )
+  }, [preferencesVersion])
+
+  function resetMessages() {
+    setErrorMessage("")
+    setSuccessMessage("")
+  }
+
+  function showLoginForm() {
+    resetMessages()
+    setFormTransitionLoading(true)
+
+    setTimeout(() => {
+      setIsRegisterMode(false)
+      setFormTransitionLoading(false)
+    }, 650)
+  }
+
+  function showRegisterForm() {
+    resetMessages()
+    setFormTransitionLoading(true)
+
+    setTimeout(() => {
+      setIsRegisterMode(true)
+      setFormTransitionLoading(false)
+    }, 650)
+  }
 
   async function handleLogin(event) {
     event.preventDefault()
-    setErrorMessage("")
+    resetMessages()
 
     if (!email || !password) {
       setErrorMessage("Debes ingresar correo y contraseña.")
@@ -56,7 +97,7 @@ function App() {
     }
 
     setAuthLoading(true)
-    
+
     try {
       const response = await api.post("/auth/login", {
         correo: email,
@@ -82,11 +123,55 @@ function App() {
       }
 
       setIsLoggedIn(true)
+      navigate(getInitialRouteFromPreferences(), { replace: true })
     } catch (error) {
       console.error("Error login:", error.response?.data || error)
 
       setErrorMessage(
         error.response?.data?.message || "No fue posible iniciar sesión."
+      )
+    } finally {
+      setAuthLoading(false)
+    }
+  }
+
+  async function handleRegister(event) {
+    event.preventDefault()
+    resetMessages()
+
+    if (!nombres || !apellidos || !registerEmail || !registerPassword) {
+      setErrorMessage("Debes completar todos los campos para registrarte.")
+      return
+    }
+
+    setAuthLoading(true)
+
+    try {
+      await api.post("/auth/register", {
+        nombres,
+        apellidos,
+        correo: registerEmail,
+        password: registerPassword,
+        id_rol: 2,
+      })
+
+      setNombres("")
+      setApellidos("")
+      setRegisterEmail("")
+      setRegisterPassword("")
+
+      setEmail(registerEmail)
+      setPassword("")
+
+      setIsRegisterMode(false)
+      setSuccessMessage("Registro exitoso. Ahora puedes iniciar sesión.")
+    } catch (error) {
+      console.error("Error registro:", error.response?.data || error)
+
+      setErrorMessage(
+        error.response?.data?.message ||
+        error.response?.data?.error ||
+        "No fue posible registrar el usuario."
       )
     } finally {
       setAuthLoading(false)
@@ -103,7 +188,7 @@ function App() {
     setEmail("")
     setPassword("")
     setRemember(false)
-    setErrorMessage("")
+    resetMessages()
   }
 
   if (authLoading) {
@@ -111,7 +196,11 @@ function App() {
       <LoadingScreen
         fullScreen
         size="lg"
-        message="Iniciando sesión en Finora..."
+        message={
+          isRegisterMode
+            ? "Creando tu cuenta en Finora..."
+            : "Iniciando sesión en Finora..."
+        }
       />
     )
   }
@@ -121,7 +210,9 @@ function App() {
       <div className="main">
         <div className="card">
           <div className="left">
-            <div className="logo">F</div>
+            <div className="logo">
+              <img src={logo} alt="Finora Logo" />
+            </div>
 
             <h1>
               Hola,
@@ -140,46 +231,115 @@ function App() {
           </div>
 
           <div className="right">
-            <form className="login-form" onSubmit={handleLogin}>
-              <h2>Iniciar sesión</h2>
-
-              {errorMessage && (
-                <div className="form-error">{errorMessage}</div>
-              )}
-
-              <label htmlFor="email">Email</label>
-              <input
-                id="email"
-                type="email"
-                placeholder="ejemplo@finora.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+            {formTransitionLoading ? (
+              <LoadingScreen
+                overlay
+                size="md"
+                message={
+                  isRegisterMode
+                    ? "Volviendo al inicio de sesión..."
+                    : "Preparando el registro..."
+                }
               />
+            ) : !isRegisterMode ? (
+              <form className="login-form" onSubmit={handleLogin}>
+                <h2>Iniciar sesión</h2>
 
-              <label htmlFor="password">Contraseña</label>
-              <input
-                id="password"
-                type="password"
-                placeholder="********"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
+                {errorMessage && (
+                  <div className="form-error">{errorMessage}</div>
+                )}
 
-              <div className="remember">
+                {successMessage && (
+                  <div className="form-success">{successMessage}</div>
+                )}
+
+                <label htmlFor="email">Email</label>
                 <input
-                  id="remember"
-                  type="checkbox"
-                  checked={remember}
-                  onChange={(e) => setRemember(e.target.checked)}
+                  id="email"
+                  type="email"
+                  placeholder="ejemplo@finora.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                 />
-                <label htmlFor="remember">Recordar sesión</label>
-              </div>
 
-              <button type="submit">Entrar</button>
+                <label htmlFor="password">Contraseña</label>
+                <input
+                  id="password"
+                  type="password"
+                  placeholder="********"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
 
-              <p className="forgot">¿Olvidaste la contraseña?</p>
-              <p className="register">¿No tienes cuenta? Registrarse</p>
-            </form>
+                <div className="remember">
+                  <input
+                    id="remember"
+                    type="checkbox"
+                    checked={remember}
+                    onChange={(e) => setRemember(e.target.checked)}
+                  />
+                  <label htmlFor="remember">Recordar sesión</label>
+                </div>
+
+                <button type="submit">Entrar</button>
+
+                <p className="forgot">¿Olvidaste la contraseña?</p>
+
+                <p className="register" onClick={showRegisterForm}>
+                  ¿No tienes cuenta? Registrarse
+                </p>
+              </form>
+            ) : (
+              <form className="login-form" onSubmit={handleRegister}>
+                <h2>Crear cuenta</h2>
+
+                {errorMessage && (
+                  <div className="form-error">{errorMessage}</div>
+                )}
+
+                <label htmlFor="nombres">Nombres</label>
+                <input
+                  id="nombres"
+                  type="text"
+                  placeholder="Tus nombres"
+                  value={nombres}
+                  onChange={(e) => setNombres(e.target.value)}
+                />
+
+                <label htmlFor="apellidos">Apellidos</label>
+                <input
+                  id="apellidos"
+                  type="text"
+                  placeholder="Tus apellidos"
+                  value={apellidos}
+                  onChange={(e) => setApellidos(e.target.value)}
+                />
+
+                <label htmlFor="registerEmail">Email</label>
+                <input
+                  id="registerEmail"
+                  type="email"
+                  placeholder="ejemplo@finora.com"
+                  value={registerEmail}
+                  onChange={(e) => setRegisterEmail(e.target.value)}
+                />
+
+                <label htmlFor="registerPassword">Contraseña</label>
+                <input
+                  id="registerPassword"
+                  type="password"
+                  placeholder="********"
+                  value={registerPassword}
+                  onChange={(e) => setRegisterPassword(e.target.value)}
+                />
+
+                <button type="submit">Registrarse</button>
+
+                <p className="register" onClick={showLoginForm}>
+                  ¿Ya tienes cuenta? Iniciar sesión
+                </p>
+              </form>
+            )}
           </div>
         </div>
       </div>
@@ -243,6 +403,7 @@ function App() {
         path="/"
         element={<Navigate to={getInitialRouteFromPreferences()} replace />}
       />
+
       <Route path="*" element={<Navigate to="/transacciones" replace />} />
     </Routes>
   )

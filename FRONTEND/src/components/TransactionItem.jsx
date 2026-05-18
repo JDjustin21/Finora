@@ -1,9 +1,11 @@
 import ExpenseBadge from './ExpenseBadge';
+import { formatMoney } from '../utils/formatters';
 
 function formatAmount(amount) {
-  const value = Math.abs(amount).toLocaleString('es-CO');
-  const prefix = amount >= 0 ? '+ $' : '- $';
-  return `${prefix} ${value}`;
+  const numericAmount = Number(amount || 0);
+  const prefix = numericAmount >= 0 ? '+' : '-';
+
+  return `${prefix} ${formatMoney(Math.abs(numericAmount))}`;
 }
 
 export default function TransactionItem({

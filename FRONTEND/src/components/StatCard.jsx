@@ -1,3 +1,11 @@
+import {
+  TrendingUp,
+  TrendingDown,
+  Wallet,
+  PiggyBank,
+} from 'lucide-react';
+
+
 export default function StatCard({
   title,
   value,
@@ -36,24 +44,47 @@ export default function StatCard({
 
   const selectedTone = tones[tone] || tones.violet;
 
+  const icons = {
+    '↑': TrendingUp,
+    '↓': TrendingDown,
+    '=': Wallet,
+    '★': PiggyBank,
+  };
+
+  const IconComponent = icons[icon];
+
   return (
     <article
-      className={`rounded-3xl border p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${selectedTone.card}`}
+      className={`
+        rounded-3xl
+        border
+        p-5
+        shadow-sm
+        transition-all
+        duration-300
+        hover:-translate-y-1
+        hover:scale-[1.03]
+        hover:shadow-xl
+        ${selectedTone.card}
+      `}
     >
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-sm font-semibold text-slate-600">{title}</p>
+
           <p className={`mt-3 text-2xl font-semibold tracking-tight ${selectedTone.value}`}>
             {value}
           </p>
         </div>
 
-        <div className={`grid h-11 w-11 place-items-center rounded-2xl text-sm font-bold ${selectedTone.icon}`}>
-          {icon}
+        <div className={`grid h-11 w-11 place-items-center rounded-2xl ${selectedTone.icon}`}>
+          {IconComponent && <IconComponent size={22} />}
         </div>
       </div>
 
-      <p className="mt-3 text-sm leading-5 text-slate-500">{subtitle}</p>
+      <p className="mt-3 text-sm leading-5 text-slate-500">
+        {subtitle}
+      </p>
 
       {trend && (
         <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-slate-500">

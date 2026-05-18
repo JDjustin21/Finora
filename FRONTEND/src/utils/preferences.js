@@ -1,3 +1,8 @@
+import {
+  getCachedCurrencyRates,
+  getCurrencyRates,
+} from '../services/currencyService';
+
 export const DEFAULT_PREFERENCES = {
   moneda: 'COP',
   periodoInicio: 'Mensual',
@@ -104,19 +109,16 @@ export const CURRENCY_CONFIG = {
     label: 'Peso colombiano',
     locale: 'es-CO',
     currency: 'COP',
-    rateFromCOP: 1,
   },
   USD: {
     label: 'Dólar estadounidense',
     locale: 'en-US',
     currency: 'USD',
-    rateFromCOP: 1 / 3700,
   },
   EUR: {
     label: 'Euro',
     locale: 'de-DE',
     currency: 'EUR',
-    rateFromCOP: 1 / 4300,
   },
 };
 
@@ -126,7 +128,12 @@ export function getSelectedCurrencyConfig() {
 }
 
 export function convertFromCOP(value, currencyCode) {
-  const config = CURRENCY_CONFIG[currencyCode] || CURRENCY_CONFIG.COP;
+  const safeCurrencyCode = CURRENCY_CONFIG[currencyCode]
+    ? currencyCode
+    : 'COP';
 
-  return Number(value || 0) * config.rateFromCOP;
+  const rates = getCachedCurrencyRates();
+  const rateFromCOP = rates.rateFromCOP?.[safeCurrencyCode] ?? 1;
+
+  return Number(value || 0) * rateFromCOP;
 }

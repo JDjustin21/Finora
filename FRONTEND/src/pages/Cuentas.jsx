@@ -13,6 +13,12 @@ import {
   normalizeUserTransactions,
 } from '../utils/finance';
 
+import {
+  CreditCard,
+  Layers,
+  Wallet,
+} from 'lucide-react';
+
 function getStoredUser() {
   const localUser = localStorage.getItem('finora_usuario');
   const sessionUser = sessionStorage.getItem('finora_usuario');
@@ -64,18 +70,18 @@ export default function Cuentas({ usuario, onLogout }) {
 
   const accountTypesMap = useMemo(() => {
     return accountTypes.reduce((acc, type) => {
-        acc[type.id_tipo_cuenta] = type;
-        return acc;
+      acc[type.id_tipo_cuenta] = type;
+      return acc;
     }, {});
-    }, [accountTypes]);
+  }, [accountTypes]);
 
   const categoriesMap = useMemo(() => {
     return buildMap(categories, 'id_categoria');
-    }, [categories]);
+  }, [categories]);
 
   const accountsMap = useMemo(() => {
     return buildMap(accounts, 'id_cuenta');
-    }, [accounts]);
+  }, [accounts]);
 
   const normalizedTransactions = useMemo(() => {
     return normalizeUserTransactions({
@@ -88,10 +94,10 @@ export default function Cuentas({ usuario, onLogout }) {
 
   const accountsWithBalance = useMemo(() => {
     return buildAccountsWithCurrentBalance({
-        accounts,
-        transactions: normalizedTransactions,
+      accounts,
+      transactions: normalizedTransactions,
     });
-    }, [accounts, normalizedTransactions]);
+  }, [accounts, normalizedTransactions]);
 
   const totalCurrentBalance = useMemo(() => {
     return accountsWithBalance.reduce((total, account) => {
@@ -103,16 +109,16 @@ export default function Cuentas({ usuario, onLogout }) {
     const searchValue = normalizeText(search);
 
     return accountsWithBalance.filter((account) => {
-        const typeName = accountTypesMap[account.id_tipo_cuenta]?.nombre || '';
+      const typeName = accountTypesMap[account.id_tipo_cuenta]?.nombre || '';
 
-        return (
-            normalizeText(account.nombre).includes(searchValue) ||
-            normalizeText(typeName).includes(searchValue) ||
-            normalizeText(account.saldo_inicial).includes(searchValue) ||
-            normalizeText(account.saldo_actual).includes(searchValue)
-            );
-        });
-    }, [accountsWithBalance, accountTypesMap, search]);
+      return (
+        normalizeText(account.nombre).includes(searchValue) ||
+        normalizeText(typeName).includes(searchValue) ||
+        normalizeText(account.saldo_inicial).includes(searchValue) ||
+        normalizeText(account.saldo_actual).includes(searchValue)
+      );
+    });
+  }, [accountsWithBalance, accountTypesMap, search]);
 
   async function loadAccountsModule() {
     setLoading(true);
@@ -121,16 +127,16 @@ export default function Cuentas({ usuario, onLogout }) {
     try {
       const [accountsResponse, typesResponse, transactionsResponse, categoriesResponse] =
         await Promise.all([
-            api.get('/finanzas/cuentas/?include_inactive=true'),
-            api.get('/finanzas/cuentas/tipos'),
-            api.get('/transacciones/'),
-            api.get('/categorias/'),
+          api.get('/finanzas/cuentas/?include_inactive=true'),
+          api.get('/finanzas/cuentas/tipos'),
+          api.get('/transacciones/'),
+          api.get('/categorias/'),
         ]);
 
-        setAccounts(accountsResponse.data);
-        setAccountTypes(typesResponse.data);
-        setTransactions(transactionsResponse.data);
-        setCategories(categoriesResponse.data);
+      setAccounts(accountsResponse.data);
+      setAccountTypes(typesResponse.data);
+      setTransactions(transactionsResponse.data);
+      setCategories(categoriesResponse.data);
 
       setAccountForm((prev) => ({
         ...prev,
@@ -232,7 +238,7 @@ export default function Cuentas({ usuario, onLogout }) {
       );
     }
   }
-  
+
   async function handleCreateAccountType(event) {
     event.preventDefault();
     setErrorMessage('');
@@ -321,38 +327,78 @@ export default function Cuentas({ usuario, onLogout }) {
           )}
 
           <section className="grid shrink-0 grid-cols-1 gap-4 md:grid-cols-3">
-            <article className="rounded-2xl border border-violet-100 bg-violet-50 p-5 shadow-sm">
-              <div className="flex items-center gap-2">
-                <KpiDot className="bg-violet-600" />
-                <p className="text-sm font-semibold text-slate-600">Cuentas activas</p>
-              </div>
 
-              <p className="mt-3 text-3xl font-semibold text-violet-950">
-                {accounts.filter((account) => account.activa).length}
-              </p>
+            {/* Cuentas activas */}
+            <article className="rounded-2xl border border-violet-100 bg-violet-50 p-5 shadow-sm transition-all duration-300 ease-out hover:-translate-y-1 hover:scale-[1.03] hover:shadow-xl">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-slate-600">
+                    Cuentas activas
+                  </p>
+
+                  <p className="mt-3 text-3xl font-semibold text-violet-950">
+                    {accounts.filter((account) => account.activa).length}
+                  </p>
+
+                  <p className="mt-1 text-xs text-slate-500">
+                    Productos financieros disponibles
+                  </p>
+                </div>
+
+                <div className="grid h-12 w-12 place-items-center rounded-2xl bg-violet-100">
+                  <CreditCard className="h-6 w-6 text-violet-700" />
+                </div>
+              </div>
             </article>
 
-            <article className="rounded-2xl border border-blue-100 bg-blue-50 p-5 shadow-sm">
-              <div className="flex items-center gap-2">
-                <KpiDot className="bg-blue-600" />
-                <p className="text-sm font-semibold text-slate-600">Tipos disponibles</p>
-              </div>
 
-              <p className="mt-3 text-3xl font-semibold text-blue-950">
-                {accountTypes.length}
-              </p>
+            {/* Tipos disponibles */}
+            <article className="rounded-2xl border border-blue-100 bg-blue-50 p-5 shadow-sm transition-all duration-300 ease-out hover:-translate-y-1 hover:scale-[1.03] hover:shadow-xl">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-slate-600">
+                    Tipos disponibles
+                  </p>
+
+                  <p className="mt-3 text-3xl font-semibold text-blue-950">
+                    {accountTypes.length}
+                  </p>
+
+                  <p className="mt-1 text-xs text-slate-500">
+                    Categorías configuradas
+                  </p>
+                </div>
+
+                <div className="grid h-12 w-12 place-items-center rounded-2xl bg-blue-100">
+                  <Layers className="h-6 w-6 text-blue-700" />
+                </div>
+              </div>
             </article>
 
-            <article className="rounded-2xl border border-emerald-100 bg-emerald-50 p-5 shadow-sm">
-              <div className="flex items-center gap-2">
-                <KpiDot className="bg-emerald-600" />
-                <p className="text-sm font-semibold text-slate-600">Saldo total actual</p>
-              </div>
 
-              <p className="mt-3 text-3xl font-semibold text-emerald-950">
-                {formatMoney(totalCurrentBalance)}
-              </p>
+            {/* Saldo total */}
+            <article className="rounded-2xl border border-emerald-100 bg-emerald-50 p-5 shadow-sm transition-all duration-300 ease-out hover:-translate-y-1 hover:scale-[1.03] hover:shadow-xl">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-slate-600">
+                    Saldo total actual
+                  </p>
+
+                  <p className="mt-3 text-3xl font-semibold text-emerald-950">
+                    {formatMoney(totalCurrentBalance)}
+                  </p>
+
+                  <p className="mt-1 text-xs text-slate-500">
+                    Liquidez consolidada
+                  </p>
+                </div>
+
+                <div className="grid h-12 w-12 place-items-center rounded-2xl bg-emerald-100">
+                  <Wallet className="h-6 w-6 text-emerald-700" />
+                </div>
+              </div>
             </article>
+
           </section>
 
           <section className="flex min-h-0 flex-1 flex-col rounded-3xl border border-slate-200 bg-white shadow-sm">
@@ -463,6 +509,7 @@ export default function Cuentas({ usuario, onLogout }) {
                       key={account.id_cuenta}
                       account={account}
                       accountTypeName={accountTypesMap[account.id_tipo_cuenta]?.nombre}
+                      formatMoney={formatMoney}
                       onEdit={() => handleStartEditAccount(account)}
                       onDeactivate={() => setAccountToDeactivate(account)}
                       onActivate={() => handleActivateAccount(account.id_cuenta)}

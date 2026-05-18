@@ -1,12 +1,4 @@
-const formatterCOP = new Intl.NumberFormat('es-CO', {
-  style: 'currency',
-  currency: 'COP',
-  maximumFractionDigits: 0,
-});
-
-function formatMoney(value) {
-  return formatterCOP.format(Number(value || 0));
-}
+import { formatMoney } from '../utils/formatters';
 
 export default function AccountCard({
   account,
@@ -44,25 +36,25 @@ export default function AccountCard({
 
       <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="rounded-2xl bg-slate-50 px-4 py-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
             Saldo inicial
-            </p>
+          </p>
 
-            <p className="mt-1 text-xl font-semibold tracking-tight text-slate-950">
+          <p className="mt-1 text-xl font-semibold tracking-tight text-slate-950">
             {formatMoney(account.saldo_inicial)}
-            </p>
+          </p>
         </div>
 
         <div className="rounded-2xl bg-violet-50 px-4 py-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-violet-400">
+          <p className="text-xs font-semibold uppercase tracking-wide text-violet-400">
             Saldo actual
-            </p>
+          </p>
 
-            <p className="mt-1 text-xl font-semibold tracking-tight text-violet-950">
+          <p className="mt-1 text-xl font-semibold tracking-tight text-violet-950">
             {formatMoney(account.saldo_actual)}
-            </p>
+          </p>
         </div>
-        </div>
+      </div>
 
       <div className="mt-5 flex flex-wrap gap-2">
         <button

@@ -8,6 +8,12 @@ import ConfirmModal from '../components/ConfirmModal';
 import api from '../services/api';
 import LoadingScreen from '../components/LoadingScreen';
 import { formatMoney, normalizeText } from '../utils/formatters';
+import {
+  Target,
+  Wallet,
+  PiggyBank,
+  TrendingUp,
+} from 'lucide-react';
 
 function getStoredUser() {
   const localUser = localStorage.getItem('finora_usuario');
@@ -355,51 +361,82 @@ export default function Metas({ usuario, onLogout }) {
           )}
 
           <section className="grid shrink-0 grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <article className="rounded-2xl border border-violet-100 bg-violet-50 p-5 shadow-sm">
-              <div className="flex items-center gap-2">
-                <KpiDot className="bg-violet-600" />
-                <p className="text-sm font-semibold text-slate-600">Metas activas</p>
-              </div>
 
-              <p className="mt-3 text-3xl font-semibold text-violet-950">
-                {activeGoals.length}
-              </p>
-            </article>
+            <article className="rounded-2xl border border-violet-100 bg-violet-50 p-5 shadow-sm transition-all duration-300 ease-out hover:-translate-y-1 hover:scale-[1.03] hover:shadow-xl">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-slate-600">Metas activas</p>
+                  <p className="mt-3 text-3xl font-semibold text-violet-950">
+                    {activeGoals.length}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Objetivos actualmente en progreso
+                  </p>
+                </div>
 
-            <article className="rounded-2xl border border-emerald-100 bg-emerald-50 p-5 shadow-sm">
-              <div className="flex items-center gap-2">
-                <KpiDot className="bg-emerald-600" />
-                <p className="text-sm font-semibold text-slate-600">Total ahorrado</p>
-              </div>
-
-              <p className="mt-3 text-3xl font-semibold text-emerald-950">
-                {formatMoney(totalSaved)}
-              </p>
-            </article>
-
-            <article className="rounded-2xl border border-blue-100 bg-blue-50 p-5 shadow-sm">
-              <div className="flex items-center gap-2">
-                <KpiDot className="bg-blue-600" />
-                <p className="text-sm font-semibold text-slate-600">Objetivo total</p>
-              </div>
-
-              <p className="mt-3 text-3xl font-semibold text-blue-950">
-                {formatMoney(totalObjective)}
-              </p>
-            </article>
-
-            <article className="rounded-2xl border border-amber-100 bg-amber-50 p-5 shadow-sm">
-              <div className="flex items-center gap-2">
-                <KpiDot className="bg-amber-500" />
-                <p className="text-sm font-semibold text-slate-600">
-                  Cumplimiento promedio
-                </p>
-              </div>
-
-              <div className="mt-4">
-                <GoalProgressCircle value={averageProgress} />
+                <div className="grid h-12 w-12 place-items-center rounded-2xl bg-violet-100">
+                  <Target className="h-6 w-6 text-violet-700" />
+                </div>
               </div>
             </article>
+
+
+            <article className="rounded-2xl border border-emerald-100 bg-emerald-50 p-5 shadow-sm transition-all duration-300 ease-out hover:-translate-y-1 hover:scale-[1.03] hover:shadow-xl">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-slate-600">Total ahorrado</p>
+                  <p className="mt-3 text-3xl font-semibold text-emerald-950">
+                    {formatMoney(totalSaved)}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Capital acumulado en todas tus metas
+                  </p>
+                </div>
+
+                <div className="grid h-12 w-12 place-items-center rounded-2xl bg-emerald-100">
+                  <Wallet className="h-6 w-6 text-emerald-700" />
+                </div>
+              </div>
+            </article>
+
+
+            <article className="rounded-2xl border border-blue-100 bg-blue-50 p-5 shadow-sm transition-all duration-300 ease-out hover:-translate-y-1 hover:scale-[1.03] hover:shadow-xl">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-slate-600">Objetivo total</p>
+                  <p className="mt-3 text-3xl font-semibold text-blue-950">
+                    {formatMoney(totalObjective)}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Monto global proyectado a alcanzar
+                  </p>
+                </div>
+
+                <div className="grid h-12 w-12 place-items-center rounded-2xl bg-blue-100">
+                  <PiggyBank className="h-6 w-6 text-blue-700" />
+                </div>
+              </div>
+            </article>
+
+
+            <article className="rounded-2xl border border-amber-100 bg-amber-50 p-5 shadow-sm transition-all duration-300 ease-out hover:-translate-y-1 hover:scale-[1.03] hover:shadow-xl">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-slate-600">
+                    Cumplimiento promedio
+                  </p>
+
+                  <div className="mt-4">
+                    <GoalProgressCircle value={averageProgress} />
+                  </div>
+                </div>
+
+                <div className="grid h-12 w-12 place-items-center rounded-2xl bg-amber-100">
+                  <TrendingUp className="h-6 w-6 text-amber-700" />
+                </div>
+              </div>
+            </article>
+
           </section>
 
           <section className="flex min-h-0 flex-1 flex-col rounded-3xl border border-slate-200 bg-white shadow-sm">
