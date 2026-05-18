@@ -1,7 +1,11 @@
+import ExpenseBadge from './ExpenseBadge';
+import { formatMoney } from '../utils/formatters';
+
 function formatAmount(amount) {
-  const value = Math.abs(amount).toLocaleString('es-CO');
-  const prefix = amount >= 0 ? '+ $' : '- $';
-  return `${prefix} ${value}`;
+  const numericAmount = Number(amount || 0);
+  const prefix = numericAmount >= 0 ? '+' : '-';
+
+  return `${prefix} ${formatMoney(Math.abs(numericAmount))}`;
 }
 
 export default function TransactionItem({
@@ -10,18 +14,28 @@ export default function TransactionItem({
   amount,
   date,
   type,
+  categoryName,
   onEdit,
   onDelete,
 }) {
+
   const isIncome = type === 'income';
 
   return (
     <article className="group rounded-2xl border border-slate-200/70 bg-white px-5 py-4 shadow-sm transition hover:-translate-y-0.5 hover:border-violet-200 hover:shadow-md">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
-          <h4 className="truncate text-base font-semibold text-slate-900">
-            {title}
-          </h4>
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="text-base font-semibold text-slate-950">
+              {title}
+            </h3>
+
+            <ExpenseBadge
+              amount={amount}
+              transactionType={type}
+              categoryName={categoryName || title}
+            />
+          </div>
 
           <p className="mt-1 text-sm leading-6 text-slate-500">
             {description}

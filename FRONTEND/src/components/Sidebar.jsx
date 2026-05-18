@@ -1,56 +1,95 @@
-import { NavLink } from 'react-router-dom';
+import { Link, NavLink } from 'react-router-dom';
+import {
+  ArrowLeftRight,
+  Wallet,
+  Target,
+  BarChart3,
+  Settings,
+} from 'lucide-react';
+
+import logo from '../assets/LOGO.png'; 
+import logoCollapsed from '../assets/finora-f.png';
 
 const menuItems = [
-  { label: 'Dashboard', path: '/dashboard' },
-  { label: 'Transacciones', path: '/transacciones' },
-  { label: 'Metas', path: '/metas' },
-  { label: 'Reportes', path: '/reportes' },
-  { label: 'Configuración', path: '/configuracion' },
+  {
+    label: 'Transacciones',
+    path: '/transacciones',
+    icon: ArrowLeftRight,
+  },
+  {
+    label: 'Cuentas',
+    path: '/cuentas',
+    icon: Wallet,
+  },
+  {
+    label: 'Metas',
+    path: '/metas',
+    icon: Target,
+  },
+  {
+    label: 'Estadísticas',
+    path: '/estadisticas',
+    icon: BarChart3,
+  },
+  {
+    label: 'Configuración',
+    path: '/configuracion',
+    icon: Settings,
+  },
 ];
 
 export default function Sidebar({ collapsed }) {
   return (
     <aside
-      className={`hidden border-r border-slate-200 bg-white transition-all duration-300 lg:flex lg:flex-col ${
-        collapsed ? 'lg:w-[88px]' : 'lg:w-[280px]'
-      }`}
+      className={`hidden border-r border-slate-200 bg-white transition-all duration-300 lg:flex lg:flex-col ${collapsed ? 'lg:w-[88px]' : 'lg:w-[280px]'
+        }`}
     >
       <div className="flex h-full flex-col gap-8 px-4 py-6">
-        <div
-          className={`flex items-center ${
+
+        {/* Logo principal */}
+        <Link
+          to="/"
+          aria-label="Ir a la página principal de Finora"
+          className={`flex items-center rounded-2xl transition hover:opacity-80 focus:outline-none focus:ring-4 focus:ring-violet-100 ${
             collapsed ? 'justify-center' : 'justify-start'
           }`}
         >
-          <div className="grid h-16 w-16 place-items-center rounded-2xl bg-violet-700 text-3xl font-semibold text-white shadow-lg shadow-violet-200">
-            F
-          </div>
-        </div>
+          <img
+            src={collapsed ? logoCollapsed : logo}
+            alt="Finora Finance"
+            className={`object-contain transition-all duration-300 ${
+              collapsed ? 'h-12 w-12' : 'h-16 w-auto'
+            }`}
+          />
+        </Link>
 
         <nav className="flex flex-col gap-2">
-          {menuItems.map((item) => (
-            <NavLink
-              key={item.label}
-              to={item.path}
-              title={collapsed ? item.label : undefined}
-              className={({ isActive }) =>
-                [
-                  'flex h-11 items-center rounded-xl px-3 text-sm font-semibold transition',
-                  collapsed ? 'justify-center' : 'justify-start',
-                  isActive
-                    ? 'bg-violet-700 text-white shadow-sm'
-                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900',
-                ].join(' ')
-              }
-            >
-              <span className="text-lg">
-                {item.label.charAt(0)}
-              </span>
+          {menuItems.map((item) => {
+            const Icon = item.icon;
 
-              {!collapsed && (
-                <span className="ml-3 truncate">{item.label}</span>
-              )}
-            </NavLink>
-          ))}
+            return (
+              <NavLink
+                key={item.label}
+                to={item.path}
+                title={collapsed ? item.label : undefined}
+                className={({ isActive }) =>
+                  [
+                    'flex h-11 items-center rounded-xl px-3 text-sm font-semibold transition',
+                    collapsed ? 'justify-center' : 'justify-start',
+                    isActive
+                      ? 'bg-violet-700 text-white shadow-sm'
+                      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900',
+                  ].join(' ')
+                }
+              >
+                <Icon size={20} />
+
+                {!collapsed && (
+                  <span className="ml-3 truncate">{item.label}</span>
+                )}
+              </NavLink>
+            );
+          })}
         </nav>
       </div>
     </aside>

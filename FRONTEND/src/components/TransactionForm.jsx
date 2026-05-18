@@ -1,3 +1,5 @@
+import { formatNumberInput, parseMoneyInput } from '../utils/formatters';
+
 export default function TransactionForm({
   transaction,
   cuentas,
@@ -6,6 +8,7 @@ export default function TransactionForm({
   onSubmit,
   submitLabel = 'Guardar transacción',
   maxDate,
+  onOpenCategoryForm,
 }) {
   const inputClass =
     'h-11 rounded-2xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-violet-400 focus:ring-4 focus:ring-violet-100';
@@ -59,23 +62,29 @@ export default function TransactionForm({
             </option>
           ))}
         </select>
+        <button
+          type="button"
+          onClick={onOpenCategoryForm}
+          className="mt-2 w-fit rounded-xl bg-white px-3 py-1.5 text-xs font-semibold text-violet-700 shadow-sm ring-1 ring-violet-100 transition hover:bg-violet-50"
+        >
+          + Nueva categoría
+        </button>
       </div>
 
       <div className="flex flex-col gap-2">
         <label className={labelClass}>Monto</label>
         <input
           className={inputClass}
-          type="number"
-          min="1"
-          step="0.01"
-          value={transaction.monto}
+          type="text"
+          inputMode="numeric"
+          value={formatNumberInput(transaction.monto)}
           onChange={(e) =>
             onChange({
               ...transaction,
-              monto: e.target.value,
+              monto: parseMoneyInput(e.target.value),
             })
           }
-          placeholder="Ej: 50000"
+          placeholder="Ej: 50.000"
         />
       </div>
 

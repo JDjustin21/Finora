@@ -12,11 +12,15 @@ import datetime
 from functools import wraps
 import bcrypt
 
+from modules.cuentas.cuentas_routes import register_cuentas_routes
+from modules.metas.metas_routes import register_metas_routes
+from modules.proyecciones.proyecciones_routes import register_proyecciones_routes
+
 # --------------------------
 # Configuración básica
 # --------------------------
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql+psycopg://postgres:postgre@127.0.0.1:5433/FinoraBD'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql+psycopg://postgres:pgadmin4@127.0.0.1:5432/finora_mayo'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = 'supersecreto_finora'
 
@@ -30,11 +34,23 @@ CORS(
     expose_headers=["Content-Type", "Authorization"]
 )
 
+
+authorizations = {
+    "Bearer Auth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "Authorization",
+        "description": "Escribe el token con este formato: Bearer <tu_token>"
+    }
+}
+
 api = Api(
     app,
     doc='/swagger',
     title="Finora API",
-    description="API RESTFUL con Swagger para Finora"
+    description="API RESTFUL con Swagger para Finora",
+    authorizations=authorizations,
+    security="Bearer Auth"
 )
 
 # --------------------------
@@ -356,6 +372,29 @@ def roles_required(*roles_permitidos):
         return decorator
     return wrapper
 
+# --------------------------
+# Módulos de negocio
+# --------------------------
+register_cuentas_routes(
+    api=api,
+    db=db,
+    tabla_clases=tabla_clases,
+    jwt_required=jwt_required
+)
+
+register_metas_routes(
+    api=api,
+    db=db,
+    tabla_clases=tabla_clases,
+    jwt_required=jwt_required
+)
+
+register_proyecciones_routes(
+    api=api,
+    db=db,
+    tabla_clases=tabla_clases,
+    jwt_required=jwt_required
+)
 
 # --------------------------
 # Namespace auth

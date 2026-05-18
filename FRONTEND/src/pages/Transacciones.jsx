@@ -4,23 +4,40 @@ import Header from '../components/Header';
 import SummaryCard from '../components/SummaryCard';
 import TransactionItem from '../components/TransactionItem';
 import TransactionForm from '../components/TransactionForm';
+import ConfirmModal from '../components/ConfirmModal';
+import InfoModal from '../components/InfoModal';
 import api from '../services/api';
+import LoadingScreen from '../components/LoadingScreen';
 import { formatMoney, normalizeText } from '../utils/formatters';
+import ProjectionForm from '../components/ProjectionForm';
+import ProjectionItem from '../components/ProjectionItem';
+import ProjectionSummaryCard from '../components/ProjectionSummaryCard';
+import {
+  confirmProjection,
+  createProjection,
+  getProjections,
+  rejectProjection,
+  updateProjection,
+} from '../services/projectionsService';
 import {
   buildMap,
   buildSummaryData,
+  calculateAccountBalance,
   calculateBalance,
   filterTransactionsByDate,
   filterTransactionsByPeriod,
   getInitialTransaction,
+  getProjectedAccountBalance,
   getProjectedBalance,
   groupTransactionsByDay,
   normalizeUserTransactions,
 } from '../utils/finance';
-import styles from '../styles/transacciones.module.css';
+import { useNavigate } from 'react-router-dom';
+
 
 const filters = ['Todos', 'Ingresos', 'Gastos'];
 const periods = ['Todos', 'Diario', 'Semanal', 'Mensual'];
+
 
 function getStoredUser() {
   const localUser = localStorage.getItem('finora_usuario');
@@ -30,7 +47,18 @@ function getStoredUser() {
   return storedUser ? JSON.parse(storedUser) : null;
 }
 
+function getInitialProjection(cuentas = [], categorias = []) {
+  return {
+    id_cuenta: cuentas[0]?.id_cuenta || '',
+    id_categoria: categorias[0]?.id_categoria || '',
+    monto: '',
+    fecha_programada: new Date().toISOString().slice(0, 10),
+    descripcion: '',
+  };
+}
+
 export default function Transacciones({ usuario, onLogout }) {
+  const navigate = useNavigate();
   const currentUser = usuario || getStoredUser();
 
   const [search, setSearch] = useState('');
@@ -46,12 +74,37 @@ export default function Transacciones({ usuario, onLogout }) {
 
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [showExpenseGuide, setShowExpenseGuide] = useState(false);
+
+  const [activeTab, setActiveTab] = useState('historial');
   const [showTransactionForm, setShowTransactionForm] = useState(false);
   const [editingTransactionId, setEditingTransactionId] = useState(null);
+  const [transactionToDelete, setTransactionToDelete] = useState(null);
+
+  const [projections, setProjections] = useState([]);
+  const [showProjectionForm, setShowProjectionForm] = useState(false);
+  const [editingProjectionId, setEditingProjectionId] = useState(null);
+  const [projectionToConfirm, setProjectionToConfirm] = useState(null);
+  const [projectionToReject, setProjectionToReject] = useState(null);
+
+  const [showCategoryForm, setShowCategoryForm] = useState(false);
+  const [newCategory, setNewCategory] = useState({
+    nombre: '',
+    tipo_movimiento: 'GASTO',
+    descripcion: '',
+  });
 
   const [newTransaction, setNewTransaction] = useState(
     getInitialTransaction()
   );
+
+  const [newProjection, setNewProjection] = useState({
+    id_cuenta: '',
+    id_categoria: '',
+    monto: '',
+    fecha_programada: '',
+    descripcion: '',
+  });
 
   const userFullName = currentUser
     ? `${currentUser.nombres} ${currentUser.apellidos}`
@@ -135,6 +188,36 @@ export default function Transacciones({ usuario, onLogout }) {
     return groupTransactionsByDay(filteredTransactions);
   }, [filteredTransactions]);
 
+  const projectionSummary = useMemo(() => {
+    const pendingProjections = projections.filter((projection) => {
+      return (
+        projection.estado === 'PENDIENTE' ||
+        projection.estado === 'REPROGRAMADA'
+      );
+    });
+
+    const projectedIncome = pendingProjections
+      .filter((projection) => projection.tipo_movimiento === 'INGRESO')
+      .reduce((total, projection) => total + Number(projection.monto || 0), 0);
+
+    const projectedExpenses = pendingProjections
+      .filter((projection) => projection.tipo_movimiento === 'GASTO')
+      .reduce((total, projection) => total + Number(projection.monto || 0), 0);
+
+    return {
+      pendingCount: pendingProjections.length,
+      projectedIncome,
+      projectedExpenses,
+      projectedBalance: projectedIncome - projectedExpenses,
+    };
+  }, [projections]);
+
+  const pendingProjectionsToday = useMemo(() => {
+    return projections.filter((projection) => {
+      return projection.es_para_hoy || projection.esta_vencida;
+    });
+  }, [projections]);
+
   async function loadFinancialData() {
     if (!currentUser?.id_usuario) return;
 
@@ -147,16 +230,16 @@ export default function Transacciones({ usuario, onLogout }) {
         categoriasResponse,
         transaccionesResponse,
         metasResponse,
+        projectionsResponse,
       ] = await Promise.all([
-        api.get('/cuentas/'),
+        api.get('/finanzas/cuentas/'),
         api.get('/categorias/'),
         api.get('/transacciones/'),
-        api.get('/metas_financieras/'),
+        api.get('/finanzas/metas/'),
+        getProjections(),
       ]);
 
-      const cuentasUsuario = cuentasResponse.data.filter((cuenta) => {
-        return cuenta.id_usuario === currentUser.id_usuario && cuenta.activa;
-      });
+      const cuentasUsuario = cuentasResponse.data;
 
       const categoriasUsuario = categoriasResponse.data.filter((categoria) => {
         return (
@@ -165,17 +248,20 @@ export default function Transacciones({ usuario, onLogout }) {
         );
       });
 
-      const metasUsuario = metasResponse.data.filter((meta) => {
-        return meta.id_usuario === currentUser.id_usuario;
-      });
+      const metasUsuario = metasResponse.data;
 
       setCuentas(cuentasUsuario);
       setCategorias(categoriasUsuario);
       setTransacciones(transaccionesResponse.data);
       setMetas(metasUsuario);
+      setProjections(projectionsResponse.data);
 
       setNewTransaction(
         getInitialTransaction(cuentasUsuario, categoriasUsuario)
+      );
+
+      setNewProjection(
+        getInitialProjection(cuentasUsuario, categoriasUsuario)
       );
     } catch (error) {
       console.error('Error cargando datos financieros:', error);
@@ -191,8 +277,16 @@ export default function Transacciones({ usuario, onLogout }) {
 
   function resetTransactionForm() {
     setShowTransactionForm(false);
+    setShowCategoryForm(false);
     setEditingTransactionId(null);
+
     setNewTransaction(getInitialTransaction(cuentas, categoriasActivas));
+
+    setNewCategory({
+      nombre: '',
+      tipo_movimiento: 'GASTO',
+      descripcion: '',
+    });
   }
 
   async function handleSubmitTransaction(event) {
@@ -237,6 +331,35 @@ export default function Transacciones({ usuario, onLogout }) {
       return;
     }
 
+    const selectedAccount = cuentas.find((cuenta) => {
+      return cuenta.id_cuenta === Number(newTransaction.id_cuenta);
+    });
+
+    if (!selectedAccount) {
+      setErrorMessage('La cuenta seleccionada no existe o no está disponible.');
+      return;
+    }
+
+    const projectedAccountBalance = getProjectedAccountBalance({
+      account: selectedAccount,
+      transactions: transaccionesUsuario,
+      originalTransaction,
+      selectedCategory,
+      newAmount: monto,
+    });
+
+    if (projectedAccountBalance < 0) {
+      setErrorMessage(
+        `No puedes guardar esta transacción porque la cuenta "${selectedAccount.nombre}" no tiene saldo suficiente. Saldo disponible: ${formatMoney(
+          calculateAccountBalance({
+            account: selectedAccount,
+            transactions: transaccionesUsuario,
+          })
+        )}.`
+      );
+      return;
+    }
+
     if (newTransaction.fecha_movimiento > todayISO) {
       setErrorMessage('No puedes registrar una transacción con fecha futura.');
       return;
@@ -271,6 +394,126 @@ export default function Transacciones({ usuario, onLogout }) {
     }
   }
 
+  function resetProjectionForm() {
+    setShowProjectionForm(false);
+    setShowCategoryForm(false);
+    setEditingProjectionId(null);
+
+    setNewProjection(getInitialProjection(cuentas, categoriasActivas));
+
+    setNewCategory({
+      nombre: '',
+      tipo_movimiento: 'GASTO',
+      descripcion: '',
+    });
+  }
+
+  async function handleSubmitProjection(event) {
+    event.preventDefault();
+    setErrorMessage('');
+
+    if (
+      !newProjection.id_cuenta ||
+      !newProjection.id_categoria ||
+      !newProjection.monto ||
+      !newProjection.fecha_programada
+    ) {
+      setErrorMessage('Completa cuenta, categoría, monto y fecha programada.');
+      return;
+    }
+
+    const monto = Number(newProjection.monto);
+
+    if (Number.isNaN(monto) || monto <= 0) {
+      setErrorMessage('El monto proyectado debe ser mayor a cero.');
+      return;
+    }
+
+    if (newProjection.fecha_programada < todayISO) {
+      setErrorMessage('La fecha programada no puede ser anterior a hoy.');
+      return;
+    }
+
+    const payload = {
+      id_cuenta: Number(newProjection.id_cuenta),
+      id_categoria: Number(newProjection.id_categoria),
+      monto,
+      fecha_programada: newProjection.fecha_programada,
+      descripcion: newProjection.descripcion,
+    };
+
+    try {
+      if (editingProjectionId) {
+        await updateProjection(editingProjectionId, payload);
+      } else {
+        await createProjection(payload);
+      }
+
+      resetProjectionForm();
+      setActiveTab('proyecciones');
+      await loadFinancialData();
+    } catch (error) {
+      console.error('Error guardando proyección:', error.response?.data || error);
+
+      setErrorMessage(
+        error.response?.data?.message || 'No se pudo guardar la proyección.'
+      );
+    }
+  }
+
+  function handleStartEditProjection(projection) {
+    setErrorMessage('');
+    setEditingProjectionId(projection.id_proyeccion);
+
+    setNewProjection({
+      id_cuenta: projection.id_cuenta,
+      id_categoria: projection.id_categoria,
+      monto: Math.abs(Number(projection.monto || 0)),
+      fecha_programada: projection.fecha_programada,
+      descripcion: projection.descripcion || '',
+    });
+
+    setShowTransactionForm(false);
+    setShowProjectionForm(true);
+    setActiveTab('proyecciones');
+  }
+
+  async function handleConfirmProjection(idProjection) {
+    setErrorMessage('');
+
+    try {
+      await confirmProjection(idProjection);
+
+      setProjectionToConfirm(null);
+      await loadFinancialData();
+      setActiveTab('historial');
+    } catch (error) {
+      console.error('Error confirmando proyección:', error.response?.data || error);
+
+      setErrorMessage(
+        error.response?.data?.message || 'No se pudo confirmar la proyección.'
+      );
+    }
+  }
+
+  async function handleRejectProjection(idProjection) {
+    setErrorMessage('');
+
+    try {
+      await rejectProjection(idProjection);
+
+      setProjectionToReject(null);
+      await loadFinancialData();
+      setActiveTab('proyecciones');
+    } catch (error) {
+      console.error('Error rechazando proyección:', error.response?.data || error);
+
+      setErrorMessage(
+        error.response?.data?.message || 'No se pudo rechazar la proyección.'
+      );
+    }
+  }
+
   function handleStartEditTransaction(transaction) {
     setErrorMessage('');
     setEditingTransactionId(transaction.id_transaccion);
@@ -290,12 +533,6 @@ export default function Transacciones({ usuario, onLogout }) {
   }
 
   async function handleDeleteTransaction(transactionId) {
-    const confirmDelete = window.confirm(
-      '¿Seguro que deseas eliminar esta transacción?'
-    );
-
-    if (!confirmDelete) return;
-
     setErrorMessage('');
 
     try {
@@ -305,6 +542,7 @@ export default function Transacciones({ usuario, onLogout }) {
         resetTransactionForm();
       }
 
+      setTransactionToDelete(null);
       await loadFinancialData();
     } catch (error) {
       console.error(
@@ -318,7 +556,55 @@ export default function Transacciones({ usuario, onLogout }) {
     }
   }
 
-  return (
+  async function handleCreateCategory(event) {
+    event.preventDefault();
+    setErrorMessage('');
+
+    const nombre = newCategory.nombre.trim();
+    const descripcion = newCategory.descripcion.trim();
+
+    if (!nombre) {
+      setErrorMessage('El nombre de la categoría es obligatorio.');
+      return;
+    }
+
+    try {
+      const response = await api.post('/categorias/', {
+        id_usuario: currentUser.id_usuario,
+        nombre,
+        tipo_movimiento: newCategory.tipo_movimiento,
+        descripcion,
+        activa: true,
+      });
+
+      setCategorias((prev) => [...prev, response.data]);
+
+      setNewTransaction((prev) => ({
+        ...prev,
+        id_categoria: response.data.id_categoria,
+      }));
+
+      setNewProjection((prev) => ({
+        ...prev,
+        id_categoria: response.data.id_categoria,
+      }));
+
+      setNewCategory({
+        nombre: '',
+        tipo_movimiento: 'GASTO',
+        descripcion: '',
+      });
+
+      setShowCategoryForm(false);
+    } catch (error) {
+      console.error('Error creando categoría:', error.response?.data || error);
+      setErrorMessage(
+        error.response?.data?.message || 'No se pudo crear la categoría.'
+      );
+    }
+  }
+
+   return (
       <div className="flex h-screen overflow-hidden bg-slate-50 text-slate-900">
         <Sidebar collapsed={sidebarCollapsed} />
 
@@ -330,23 +616,43 @@ export default function Transacciones({ usuario, onLogout }) {
             placeholder="Buscar transacciones, metas o reportes..."
             onLogout={onLogout}
             onToggleSidebar={() => setSidebarCollapsed((value) => !value)}
+            notifications={pendingProjectionsToday}
+            onNotificationClick={(projection) => {
+              setActiveTab('proyecciones');
+              setProjectionToConfirm(projection);
+            }}
           />
 
           <main className="flex min-h-0 flex-1 flex-col gap-6 overflow-hidden px-4 py-5 lg:px-8">
             <section className="shrink-0">
-              <div className="flex flex-col gap-2">
-                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-violet-600">
-                  Panel financiero
-                </p>
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div className="flex flex-col gap-2">
+                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-violet-600">
+                    Panel financiero
+                  </p>
 
-                <h1 className="text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl">
-                  Transacciones
-                </h1>
+                  <h1 className="text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl">
+                    Transacciones
+                  </h1>
 
-                <p className="max-w-2xl text-sm leading-6 text-slate-500">
-                  Consulta, filtra, registra, edita y elimina tus movimientos
-                  financieros sin perder el control del historial.
-                </p>
+                  <p className="max-w-2xl text-sm leading-6 text-slate-500">
+                    {activeTab === 'historial'
+                      ? 'Consulta, filtra, registra, edita y elimina tus movimientos financieros reales.'
+                      : 'Planifica ingresos y gastos futuros sin afectar todavía tus saldos reales.'}
+                  </p>
+                </div>
+
+                {activeTab === 'historial' && (
+                  <button
+                    type="button"
+                    onClick={() => setShowExpenseGuide(true)}
+                    className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-violet-700 text-base font-bold text-white shadow-sm transition hover:bg-violet-800"
+                    title="Tipos de gastos"
+                    aria-label="Ver explicación de tipos de gastos"
+                  >
+                    ?
+                  </button>
+                )}
               </div>
             </section>
 
@@ -357,36 +663,117 @@ export default function Transacciones({ usuario, onLogout }) {
             )}
 
             <section className="grid shrink-0 grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-              {summaryData.map((card) => (
-                <SummaryCard
-                  key={card.id}
-                  title={card.title}
-                  amount={card.amount}
-                  subtitle={card.subtitle}
-                  variant={card.variant}
-                />
-              ))}
+              {activeTab === 'historial' ? (
+                summaryData.map((card) => (
+                  <SummaryCard
+                    key={card.id}
+                    title={card.title}
+                    amount={card.amount}
+                    subtitle={card.subtitle}
+                    variant={card.variant}
+                  />
+                ))
+              ) : (
+                <>
+                  <ProjectionSummaryCard
+                    title="Proyecciones pendientes"
+                    value={projectionSummary.pendingCount}
+                    subtitle={`${pendingProjectionsToday.length} requieren revisión hoy o están vencidas.`}
+                    tone="violet"
+                  />
+
+                  <ProjectionSummaryCard
+                    title="Ingresos proyectados"
+                    value={formatMoney(projectionSummary.projectedIncome)}
+                    subtitle="Ingresos futuros que aún no afectan tu balance."
+                    tone="emerald"
+                  />
+
+                  <ProjectionSummaryCard
+                    title="Gastos proyectados"
+                    value={formatMoney(projectionSummary.projectedExpenses)}
+                    subtitle="Gastos futuros pendientes de confirmación."
+                    tone="rose"
+                  />
+
+                  <ProjectionSummaryCard
+                    title="Balance proyectado"
+                    value={formatMoney(projectionSummary.projectedBalance)}
+                    subtitle="Diferencia estimada entre ingresos y gastos proyectados."
+                    tone="blue"
+                  />
+                </>
+              )}
             </section>
 
             <section className="flex min-h-0 flex-1 flex-col rounded-3xl border border-slate-200 bg-white shadow-sm">
               <div className="shrink-0 border-b border-slate-200 px-4 py-4 sm:px-5">
                 <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-                  <button
-                    type="button"
-                    className="inline-flex items-center justify-center rounded-2xl bg-violet-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-violet-800"
-                    onClick={() => {
-                      if (showTransactionForm) {
-                        resetTransactionForm();
-                        return;
-                      }
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      className="inline-flex items-center justify-center rounded-2xl bg-violet-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-violet-800"
+                      onClick={() => {
+                        if (cuentas.length === 0) {
+                          const shouldGoToAccounts = window.confirm(
+                            'Necesitas crear una cuenta antes de registrar transacciones. ¿Quieres ir al módulo de Cuentas?'
+                          );
 
-                      setEditingTransactionId(null);
-                      setNewTransaction(getInitialTransaction(cuentas, categoriasActivas));
-                      setShowTransactionForm(true);
-                    }}
-                  >
-                    {showTransactionForm ? 'Cancelar' : '+ Nueva transacción'}
-                  </button>
+                          if (shouldGoToAccounts) {
+                            navigate('/cuentas');
+                          }
+
+                          return;
+                        }
+
+                        if (showTransactionForm) {
+                          resetTransactionForm();
+                          return;
+                        }
+
+                        setShowProjectionForm(false);
+                        setEditingProjectionId(null);
+                        setEditingTransactionId(null);
+                        setNewTransaction(getInitialTransaction(cuentas, categoriasActivas));
+                        setShowTransactionForm(true);
+                        setActiveTab('historial');
+                      }}
+                    >
+                      {showTransactionForm ? 'Cancelar' : '+ Nueva transacción'}
+                    </button>
+
+                    <button
+                      type="button"
+                      className="inline-flex items-center justify-center rounded-2xl border border-violet-200 bg-violet-50 px-4 py-2.5 text-sm font-semibold text-violet-700 shadow-sm transition hover:bg-violet-100"
+                      onClick={() => {
+                        if (cuentas.length === 0) {
+                          const shouldGoToAccounts = window.confirm(
+                            'Necesitas crear una cuenta antes de crear proyecciones. ¿Quieres ir al módulo de Cuentas?'
+                          );
+
+                          if (shouldGoToAccounts) {
+                            navigate('/cuentas');
+                          }
+
+                          return;
+                        }
+
+                        if (showProjectionForm) {
+                          resetProjectionForm();
+                          return;
+                        }
+
+                        setShowTransactionForm(false);
+                        setEditingTransactionId(null);
+                        setEditingProjectionId(null);
+                        setNewProjection(getInitialProjection(cuentas, categoriasActivas));
+                        setShowProjectionForm(true);
+                        setActiveTab('proyecciones');
+                      }}
+                    >
+                      {showProjectionForm ? 'Cancelar proyección' : '+ Nueva proyección'}
+                    </button>
+                  </div>
 
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 xl:w-auto">
                     <select
@@ -424,69 +811,216 @@ export default function Transacciones({ usuario, onLogout }) {
                   </div>
                 </div>
 
-                {showTransactionForm && (
-                  <div className="mt-4 rounded-3xl border border-violet-100 bg-violet-50/60 p-4">
-                    <TransactionForm
-                      transaction={newTransaction}
-                      cuentas={cuentas}
-                      categorias={categoriasActivas}
-                      onChange={setNewTransaction}
-                      onSubmit={handleSubmitTransaction}
-                      maxDate={todayISO}
-                      submitLabel={
-                        editingTransactionId
-                          ? 'Actualizar transacción'
-                          : 'Guardar transacción'
-                      }
-                    />
+                {(showTransactionForm || showProjectionForm || showCategoryForm) && (
+                  <div className="mt-4 max-h-[42vh] space-y-4 overflow-y-auto rounded-3xl border border-slate-200 bg-slate-50/70 p-4">
+                    {showTransactionForm && (
+                      <div className="rounded-3xl border border-violet-100 bg-violet-50/60 p-4">
+                        <TransactionForm
+                          transaction={newTransaction}
+                          cuentas={cuentas}
+                          categorias={categoriasActivas}
+                          onChange={setNewTransaction}
+                          onSubmit={handleSubmitTransaction}
+                          maxDate={todayISO}
+                          onOpenCategoryForm={() =>
+                            setShowCategoryForm((value) => !value)
+                          }
+                          submitLabel={
+                            editingTransactionId
+                              ? 'Actualizar transacción'
+                              : 'Guardar transacción'
+                          }
+                        />
+                      </div>
+                    )}
+
+                    {showProjectionForm && (
+                      <div className="rounded-3xl border border-blue-100 bg-blue-50/60 p-4">
+                        <ProjectionForm
+                          projection={newProjection}
+                          cuentas={cuentas}
+                          categorias={categoriasActivas}
+                          onChange={setNewProjection}
+                          onSubmit={handleSubmitProjection}
+                          minDate={todayISO}
+                          onOpenCategoryForm={() => setShowCategoryForm((value) => !value)}
+                          submitLabel={
+                            editingProjectionId
+                              ? 'Actualizar proyección'
+                              : 'Guardar proyección'
+                          }
+                        />
+                      </div>
+                    )}
+
+                    {showCategoryForm && (
+                      <form
+                        onSubmit={handleCreateCategory}
+                        className="grid grid-cols-1 gap-4 rounded-3xl border border-slate-200 bg-white p-4 md:grid-cols-3"
+                      >
+                        <div className="flex flex-col gap-2">
+                          <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            Nombre
+                          </label>
+                          <input
+                            type="text"
+                            value={newCategory.nombre}
+                            onChange={(e) =>
+                              setNewCategory({
+                                ...newCategory,
+                                nombre: e.target.value,
+                              })
+                            }
+                            placeholder="Ej: Transporte"
+                            className="h-11 rounded-2xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 outline-none transition focus:border-violet-400 focus:ring-4 focus:ring-violet-100"
+                          />
+                        </div>
+
+                        <div className="flex flex-col gap-2">
+                          <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            Tipo
+                          </label>
+                          <select
+                            value={newCategory.tipo_movimiento}
+                            onChange={(e) =>
+                              setNewCategory({
+                                ...newCategory,
+                                tipo_movimiento: e.target.value,
+                              })
+                            }
+                            className="h-11 rounded-2xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 outline-none transition focus:border-violet-400 focus:ring-4 focus:ring-violet-100"
+                          >
+                            <option value="GASTO">Gasto</option>
+                            <option value="INGRESO">Ingreso</option>
+                          </select>
+                        </div>
+
+                        <div className="flex flex-col gap-2">
+                          <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            Descripción
+                          </label>
+                          <input
+                            type="text"
+                            value={newCategory.descripcion}
+                            onChange={(e) =>
+                              setNewCategory({
+                                ...newCategory,
+                                descripcion: e.target.value,
+                              })
+                            }
+                            placeholder="Descripción opcional"
+                            className="h-11 rounded-2xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 outline-none transition focus:border-violet-400 focus:ring-4 focus:ring-violet-100"
+                          />
+                        </div>
+
+                        <div className="md:col-span-3">
+                          <button
+                            type="submit"
+                            className="rounded-2xl bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800"
+                          >
+                            Guardar categoría
+                          </button>
+                        </div>
+                      </form>
+                    )}
                   </div>
                 )}
               </div>
 
+              <div className="shrink-0 border-b border-slate-200 px-4 py-3 sm:px-5">
+                <div className="inline-flex rounded-2xl bg-slate-100 p-1">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('historial')}
+                    className={
+                      activeTab === 'historial'
+                        ? 'rounded-xl bg-white px-4 py-2 text-sm font-semibold text-slate-950 shadow-sm'
+                        : 'rounded-xl px-4 py-2 text-sm font-semibold text-slate-500 transition hover:text-slate-900'
+                    }
+                  >
+                    Historial
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('proyecciones')}
+                    className={
+                      activeTab === 'proyecciones'
+                        ? 'rounded-xl bg-white px-4 py-2 text-sm font-semibold text-slate-950 shadow-sm'
+                        : 'rounded-xl px-4 py-2 text-sm font-semibold text-slate-500 transition hover:text-slate-900'
+                    }
+                  >
+                    Proyecciones
+                  </button>
+                </div>
+              </div>
+
               <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5">
                 {loading ? (
-                  <div className="grid h-full min-h-[260px] place-items-center rounded-2xl border border-dashed border-slate-200 text-sm font-medium text-slate-400">
-                    Cargando datos financieros...
-                  </div>
-                ) : filteredTransactions.length > 0 ? (
-                  <div className="space-y-6">
-                    {Object.entries(groupedTransactions).map(
-                      ([dayLabel, transactions]) => (
-                        <section key={dayLabel} className="space-y-3">
-                          <div className="sticky top-0 z-10 -mx-1 bg-white/90 px-1 py-1 backdrop-blur">
-                            <h2 className="text-xs font-semibold uppercase tracking-[0.22em] text-violet-500">
-                              {dayLabel}
-                            </h2>
-                          </div>
+                  <LoadingScreen message="Cargando transacciones..." />
+                ) : activeTab === 'historial' ? (
+                  filteredTransactions.length > 0 ? (
+                    <div className="space-y-6">
+                      {Object.entries(groupedTransactions).map(
+                        ([dayLabel, transactions]) => (
+                          <section key={dayLabel} className="space-y-3">
+                            <div className="sticky top-0 z-10 -mx-1 bg-white/90 px-1 py-1 backdrop-blur">
+                              <h2 className="text-xs font-semibold uppercase tracking-[0.22em] text-violet-500">
+                                {dayLabel}
+                              </h2>
+                            </div>
 
-                          <div className="space-y-3">
-                            {transactions.map((transaction) => (
-                              <TransactionItem
-                                key={transaction.id_transaccion}
-                                title={transaction.title}
-                                description={`${transaction.description} · ${transaction.cuentaNombre}`}
-                                amount={transaction.amount}
-                                date={transaction.date}
-                                type={transaction.type}
-                                onEdit={() => handleStartEditTransaction(transaction)}
-                                onDelete={() =>
-                                  handleDeleteTransaction(transaction.id_transaccion)
-                                }
-                              />
-                            ))}
-                          </div>
-                        </section>
-                      )
-                    )}
+                            <div className="space-y-3">
+                              {transactions.map((transaction) => (
+                                <TransactionItem
+                                  key={transaction.id_transaccion}
+                                  title={transaction.title}
+                                  description={`${transaction.description} · ${transaction.cuentaNombre}`}
+                                  amount={transaction.amount}
+                                  date={transaction.date}
+                                  type={transaction.type}
+                                  categoryName={transaction.title}
+                                  onEdit={() => handleStartEditTransaction(transaction)}
+                                  onDelete={() => setTransactionToDelete(transaction)}
+                                />
+                              ))}
+                            </div>
+                          </section>
+                        )
+                      )}
+                    </div>
+                  ) : (
+                    <div className="grid h-full min-h-[260px] place-items-center rounded-2xl border border-dashed border-slate-200 px-4 text-center">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-700">
+                          No se encontraron transacciones
+                        </p>
+                        <p className="mt-1 text-sm text-slate-400">
+                          Ajusta los filtros o registra una nueva transacción.
+                        </p>
+                      </div>
+                    </div>
+                  )
+                ) : projections.length > 0 ? (
+                  <div className="space-y-3">
+                    {projections.map((projection) => (
+                      <ProjectionItem
+                        key={projection.id_proyeccion}
+                        projection={projection}
+                        onEdit={() => handleStartEditProjection(projection)}
+                        onConfirm={() => setProjectionToConfirm(projection)}
+                        onReject={() => setProjectionToReject(projection)}
+                      />
+                    ))}
                   </div>
                 ) : (
                   <div className="grid h-full min-h-[260px] place-items-center rounded-2xl border border-dashed border-slate-200 px-4 text-center">
                     <div>
                       <p className="text-sm font-semibold text-slate-700">
-                        No se encontraron transacciones
+                        No tienes proyecciones registradas
                       </p>
                       <p className="mt-1 text-sm text-slate-400">
-                        Ajusta los filtros o registra una nueva transacción.
+                        Crea una proyección para planear ingresos o gastos futuros.
                       </p>
                     </div>
                   </div>
@@ -495,6 +1029,123 @@ export default function Transacciones({ usuario, onLogout }) {
             </section>
           </main>
         </div>
+
+        <ConfirmModal
+          open={Boolean(transactionToDelete)}
+          title="Eliminar transacción"
+          message={`La transacción "${transactionToDelete?.title}" será eliminada y dejará de afectar tus saldos.`}
+          confirmLabel="Eliminar"
+          cancelLabel="Cancelar"
+          variant="danger"
+          onCancel={() => setTransactionToDelete(null)}
+          onConfirm={() => {
+            if (transactionToDelete) {
+              handleDeleteTransaction(transactionToDelete.id_transaccion);
+            }
+          }}
+        />
+        <ConfirmModal
+          open={Boolean(projectionToConfirm)}
+          title="Confirmar proyección"
+          message={`La proyección "${projectionToConfirm?.categoria_nombre}" se convertirá en una transacción real y empezará a afectar tus saldos.`}
+          confirmLabel="Confirmar"
+          cancelLabel="Cancelar"
+          variant="default"
+          onCancel={() => setProjectionToConfirm(null)}
+          onConfirm={() => {
+            if (projectionToConfirm) {
+              handleConfirmProjection(projectionToConfirm.id_proyeccion);
+            }
+          }}
+        />
+
+        <ConfirmModal
+          open={Boolean(projectionToReject)}
+          title="Rechazar proyección"
+          message={`La proyección "${projectionToReject?.categoria_nombre}" será marcada como rechazada y no afectará tus saldos.`}
+          confirmLabel="Rechazar"
+          cancelLabel="Cancelar"
+          variant="danger"
+          onCancel={() => setProjectionToReject(null)}
+          onConfirm={() => {
+            if (projectionToReject) {
+              handleRejectProjection(projectionToReject.id_proyeccion);
+            }
+          }}
+        />
+
+        <InfoModal
+          open={showExpenseGuide}
+          title="Tipos de gastos en Finora"
+          onClose={() => setShowExpenseGuide(false)}
+        >
+          <div className="space-y-4">
+            <p className="text-sm leading-6 text-slate-500">
+              Finora clasifica automáticamente los gastos reales según su monto para
+              ayudarte a detectar patrones de consumo. Esta clasificación no afecta el
+              saldo; solo sirve como guía visual y educativa.
+            </p>
+
+            <div className="overflow-hidden rounded-2xl border border-slate-200">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-slate-50 text-slate-700">
+                  <tr>
+                    <th className="px-4 py-3 font-semibold">Tipo</th>
+                    <th className="px-4 py-3 font-semibold">Rango en COP</th>
+                    <th className="px-4 py-3 font-semibold">Interpretación</th>
+                  </tr>
+                </thead>
+
+                <tbody className="divide-y divide-slate-200">
+                  <tr>
+                    <td className="px-4 py-3 font-semibold text-rose-700">
+                      Gasto hormiga
+                    </td>
+                    <td className="px-4 py-3">Hasta $30.000</td>
+                    <td className="px-4 py-3">
+                      Gasto pequeño y frecuente que puede pasar desapercibido.
+                    </td>
+                  </tr>
+
+                  <tr>
+                    <td className="px-4 py-3 font-semibold text-amber-700">
+                      Gasto cucaracha
+                    </td>
+                    <td className="px-4 py-3">$30.001 a $100.000</td>
+                    <td className="px-4 py-3">
+                      Gasto mediano que puede repetirse y afectar el presupuesto.
+                    </td>
+                  </tr>
+
+                  <tr>
+                    <td className="px-4 py-3 font-semibold text-violet-700">
+                      Gasto ratón
+                    </td>
+                    <td className="px-4 py-3">$100.001 a $200.000</td>
+                    <td className="px-4 py-3">
+                      Gasto grande que reduce de forma visible el dinero disponible.
+                    </td>
+                  </tr>
+
+                  <tr>
+                    <td className="px-4 py-3 font-semibold text-slate-800">
+                      Gasto plaga
+                    </td>
+                    <td className="px-4 py-3">Más de $200.000</td>
+                    <td className="px-4 py-3">
+                      Gasto de alto impacto que debería revisarse si no estaba planeado.
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <p className="text-xs leading-5 text-slate-400">
+              Los aportes a metas no se clasifican como gastos hormiga, cucaracha,
+              ratón o plaga porque representan ahorro y no consumo.
+            </p>
+          </div>
+        </InfoModal>
       </div>
     );
-}
+  }
