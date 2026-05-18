@@ -39,7 +39,7 @@ export default function GoalCard({
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <span className="h-2.5 w-2.5 rounded-full bg-violet-500" />
-            <h3 className="truncate text-base font-semibold text-slate-950">
+            <h3 className="text-lg font-semibold tracking-tight text-slate-950">
               {goal.nombre}
             </h3>
           </div>
@@ -119,7 +119,7 @@ export default function GoalCard({
             onClick={onContribute}
             className="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-700"
           >
-            + Aportar
+            $ Aportar
           </button>
         )}
 

@@ -6,6 +6,7 @@ import GoalForm from '../components/GoalForm';
 import GoalContributionModal from '../components/GoalContributionModal';
 import ConfirmModal from '../components/ConfirmModal';
 import api from '../services/api';
+import LoadingScreen from '../components/LoadingScreen';
 import { formatMoney, normalizeText } from '../utils/formatters';
 
 function getStoredUser() {
@@ -36,6 +37,40 @@ function getInitialContribution(accounts = []) {
     monto: '',
     descripcion: '',
   };
+}
+
+function KpiDot({ className }) {
+  return <span className={`h-2 w-2 rounded-full ${className}`} />;
+}
+
+function GoalProgressCircle({ value }) {
+  const safeValue = Math.max(0, Math.min(Number(value || 0), 100));
+
+  return (
+    <div className="flex items-center gap-4">
+      <div
+        className="grid h-16 w-16 place-items-center rounded-full"
+        style={{
+          background: `conic-gradient(#f59e0b ${safeValue * 3.6}deg, #fef3c7 0deg)`,
+        }}
+      >
+        <div className="grid h-11 w-11 place-items-center rounded-full bg-white">
+          <span className="text-sm font-bold text-amber-950">
+            {safeValue.toFixed(0)}%
+          </span>
+        </div>
+      </div>
+
+      <div>
+        <p className="text-3xl font-semibold text-amber-950">
+          {safeValue.toFixed(0)}%
+        </p>
+        <p className="mt-1 text-xs font-medium text-slate-500">
+          promedio general
+        </p>
+      </div>
+    </div>
+  );
 }
 
 export default function Metas({ usuario, onLogout }) {
@@ -303,11 +338,11 @@ export default function Metas({ usuario, onLogout }) {
               Planificación financiera
             </p>
 
-            <h1 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl">
+            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl">
               Metas financieras
             </h1>
 
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
+            <p className="mt-2 max-w-3xl text-base leading-7 text-slate-500">
               Define objetivos, aporta dinero desde tus cuentas y controla el
               porcentaje de cumplimiento de cada meta.
             </p>
@@ -321,33 +356,49 @@ export default function Metas({ usuario, onLogout }) {
 
           <section className="grid shrink-0 grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
             <article className="rounded-2xl border border-violet-100 bg-violet-50 p-5 shadow-sm">
-              <p className="text-sm font-semibold text-slate-600">Metas activas</p>
+              <div className="flex items-center gap-2">
+                <KpiDot className="bg-violet-600" />
+                <p className="text-sm font-semibold text-slate-600">Metas activas</p>
+              </div>
+
               <p className="mt-3 text-3xl font-semibold text-violet-950">
                 {activeGoals.length}
               </p>
             </article>
 
             <article className="rounded-2xl border border-emerald-100 bg-emerald-50 p-5 shadow-sm">
-              <p className="text-sm font-semibold text-slate-600">Total ahorrado</p>
+              <div className="flex items-center gap-2">
+                <KpiDot className="bg-emerald-600" />
+                <p className="text-sm font-semibold text-slate-600">Total ahorrado</p>
+              </div>
+
               <p className="mt-3 text-3xl font-semibold text-emerald-950">
                 {formatMoney(totalSaved)}
               </p>
             </article>
 
             <article className="rounded-2xl border border-blue-100 bg-blue-50 p-5 shadow-sm">
-              <p className="text-sm font-semibold text-slate-600">Objetivo total</p>
+              <div className="flex items-center gap-2">
+                <KpiDot className="bg-blue-600" />
+                <p className="text-sm font-semibold text-slate-600">Objetivo total</p>
+              </div>
+
               <p className="mt-3 text-3xl font-semibold text-blue-950">
                 {formatMoney(totalObjective)}
               </p>
             </article>
 
             <article className="rounded-2xl border border-amber-100 bg-amber-50 p-5 shadow-sm">
-              <p className="text-sm font-semibold text-slate-600">
-                Cumplimiento promedio
-              </p>
-              <p className="mt-3 text-3xl font-semibold text-amber-950">
-                {averageProgress.toFixed(0)}%
-              </p>
+              <div className="flex items-center gap-2">
+                <KpiDot className="bg-amber-500" />
+                <p className="text-sm font-semibold text-slate-600">
+                  Cumplimiento promedio
+                </p>
+              </div>
+
+              <div className="mt-4">
+                <GoalProgressCircle value={averageProgress} />
+              </div>
             </article>
           </section>
 
@@ -386,9 +437,7 @@ export default function Metas({ usuario, onLogout }) {
 
             <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5">
               {loading ? (
-                <div className="grid h-full min-h-[260px] place-items-center rounded-2xl border border-dashed border-slate-200 text-sm font-medium text-slate-400">
-                  Cargando metas...
-                </div>
+                <LoadingScreen message="Cargando metas financieras..." />
               ) : filteredGoals.length > 0 ? (
                 <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
                   {filteredGoals.map((goal) => (

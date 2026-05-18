@@ -13,6 +13,7 @@ import Cuentas from "./pages/Cuentas"
 import Metas from "./pages/Metas"
 import Estadisticas from "./pages/Estadisticas"
 import Configuracion from "./pages/Configuracion"
+import LoadingScreen from "./components/LoadingScreen"
 
 function getStoredUser() {
   const localUser = localStorage.getItem("finora_usuario")
@@ -27,6 +28,7 @@ function App() {
   const [password, setPassword] = useState("")
   const [remember, setRemember] = useState(false)
   const [errorMessage, setErrorMessage] = useState("")
+  const [authLoading, setAuthLoading] = useState(false)
   const navigate = useNavigate();
 
   const [usuario, setUsuario] = useState(getStoredUser)
@@ -53,6 +55,8 @@ function App() {
       return
     }
 
+    setAuthLoading(true)
+    
     try {
       const response = await api.post("/auth/login", {
         correo: email,
@@ -78,13 +82,14 @@ function App() {
       }
 
       setIsLoggedIn(true)
-      navigate(getInitialRouteFromPreferences(), { replace: true });
     } catch (error) {
       console.error("Error login:", error.response?.data || error)
 
       setErrorMessage(
         error.response?.data?.message || "No fue posible iniciar sesión."
       )
+    } finally {
+      setAuthLoading(false)
     }
   }
 
@@ -99,6 +104,16 @@ function App() {
     setPassword("")
     setRemember(false)
     setErrorMessage("")
+  }
+
+  if (authLoading) {
+    return (
+      <LoadingScreen
+        fullScreen
+        size="lg"
+        message="Iniciando sesión en Finora..."
+      />
+    )
   }
 
   if (!isLoggedIn) {

@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom';
+import { Link, NavLink } from 'react-router-dom';
 import {
   ArrowLeftRight,
   Wallet,
@@ -7,7 +7,7 @@ import {
   Settings,
 } from 'lucide-react';
 
-import logo from '../assets/LOGO.png'; // ajusta la ruta
+import logo from '../assets/LOGO.png'; 
 import logoCollapsed from '../assets/finora-f.png';
 
 const menuItems = [
@@ -47,17 +47,21 @@ export default function Sidebar({ collapsed }) {
       <div className="flex h-full flex-col gap-8 px-4 py-6">
 
         {/* Logo principal */}
-        <div
-          className={`flex items-center ${collapsed ? 'justify-center' : 'justify-start'
-            }`}
+        <Link
+          to="/"
+          aria-label="Ir a la página principal de Finora"
+          className={`flex items-center rounded-2xl transition hover:opacity-80 focus:outline-none focus:ring-4 focus:ring-violet-100 ${
+            collapsed ? 'justify-center' : 'justify-start'
+          }`}
         >
           <img
             src={collapsed ? logoCollapsed : logo}
-            alt="Logo"
-            className={`object-contain transition-all duration-300 ${collapsed ? 'h-12 w-12' : 'h-16 w-auto'
-              }`}
+            alt="Finora Finance"
+            className={`object-contain transition-all duration-300 ${
+              collapsed ? 'h-12 w-12' : 'h-16 w-auto'
+            }`}
           />
-        </div>
+        </Link>
 
         <nav className="flex flex-col gap-2">
           {menuItems.map((item) => {

@@ -5,7 +5,9 @@ import SummaryCard from '../components/SummaryCard';
 import TransactionItem from '../components/TransactionItem';
 import TransactionForm from '../components/TransactionForm';
 import ConfirmModal from '../components/ConfirmModal';
+import InfoModal from '../components/InfoModal';
 import api from '../services/api';
+import LoadingScreen from '../components/LoadingScreen';
 import { formatMoney, normalizeText } from '../utils/formatters';
 import ProjectionForm from '../components/ProjectionForm';
 import ProjectionItem from '../components/ProjectionItem';
@@ -72,6 +74,7 @@ export default function Transacciones({ usuario, onLogout }) {
 
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [showExpenseGuide, setShowExpenseGuide] = useState(false);
 
   const [activeTab, setActiveTab] = useState('historial');
   const [showTransactionForm, setShowTransactionForm] = useState(false);
@@ -622,20 +625,34 @@ export default function Transacciones({ usuario, onLogout }) {
 
           <main className="flex min-h-0 flex-1 flex-col gap-6 overflow-hidden px-4 py-5 lg:px-8">
             <section className="shrink-0">
-              <div className="flex flex-col gap-2">
-                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-violet-600">
-                  Panel financiero
-                </p>
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div className="flex flex-col gap-2">
+                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-violet-600">
+                    Panel financiero
+                  </p>
 
-                <h1 className="text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl">
-                  Transacciones
-                </h1>
+                  <h1 className="text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl">
+                    Transacciones
+                  </h1>
 
-                <p className="max-w-2xl text-sm leading-6 text-slate-500">
-                  {activeTab === 'historial'
-                    ? 'Consulta, filtra, registra, edita y elimina tus movimientos financieros reales.'
-                    : 'Planifica ingresos y gastos futuros sin afectar todavía tus saldos reales.'}
-                </p>
+                  <p className="max-w-2xl text-sm leading-6 text-slate-500">
+                    {activeTab === 'historial'
+                      ? 'Consulta, filtra, registra, edita y elimina tus movimientos financieros reales.'
+                      : 'Planifica ingresos y gastos futuros sin afectar todavía tus saldos reales.'}
+                  </p>
+                </div>
+
+                {activeTab === 'historial' && (
+                  <button
+                    type="button"
+                    onClick={() => setShowExpenseGuide(true)}
+                    className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-violet-700 text-base font-bold text-white shadow-sm transition hover:bg-violet-800"
+                    title="Tipos de gastos"
+                    aria-label="Ver explicación de tipos de gastos"
+                  >
+                    ?
+                  </button>
+                )}
               </div>
             </section>
 
@@ -940,9 +957,7 @@ export default function Transacciones({ usuario, onLogout }) {
 
               <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5">
                 {loading ? (
-                  <div className="grid h-full min-h-[260px] place-items-center rounded-2xl border border-dashed border-slate-200 text-sm font-medium text-slate-400">
-                    Cargando datos financieros...
-                  </div>
+                  <LoadingScreen message="Cargando transacciones..." />
                 ) : activeTab === 'historial' ? (
                   filteredTransactions.length > 0 ? (
                     <div className="space-y-6">
@@ -964,6 +979,7 @@ export default function Transacciones({ usuario, onLogout }) {
                                   amount={transaction.amount}
                                   date={transaction.date}
                                   type={transaction.type}
+                                  categoryName={transaction.title}
                                   onEdit={() => handleStartEditTransaction(transaction)}
                                   onDelete={() => setTransactionToDelete(transaction)}
                                 />
@@ -1057,6 +1073,79 @@ export default function Transacciones({ usuario, onLogout }) {
             }
           }}
         />
+
+        <InfoModal
+          open={showExpenseGuide}
+          title="Tipos de gastos en Finora"
+          onClose={() => setShowExpenseGuide(false)}
+        >
+          <div className="space-y-4">
+            <p className="text-sm leading-6 text-slate-500">
+              Finora clasifica automáticamente los gastos reales según su monto para
+              ayudarte a detectar patrones de consumo. Esta clasificación no afecta el
+              saldo; solo sirve como guía visual y educativa.
+            </p>
+
+            <div className="overflow-hidden rounded-2xl border border-slate-200">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-slate-50 text-slate-700">
+                  <tr>
+                    <th className="px-4 py-3 font-semibold">Tipo</th>
+                    <th className="px-4 py-3 font-semibold">Rango en COP</th>
+                    <th className="px-4 py-3 font-semibold">Interpretación</th>
+                  </tr>
+                </thead>
+
+                <tbody className="divide-y divide-slate-200">
+                  <tr>
+                    <td className="px-4 py-3 font-semibold text-rose-700">
+                      Gasto hormiga
+                    </td>
+                    <td className="px-4 py-3">Hasta $30.000</td>
+                    <td className="px-4 py-3">
+                      Gasto pequeño y frecuente que puede pasar desapercibido.
+                    </td>
+                  </tr>
+
+                  <tr>
+                    <td className="px-4 py-3 font-semibold text-amber-700">
+                      Gasto cucaracha
+                    </td>
+                    <td className="px-4 py-3">$30.001 a $100.000</td>
+                    <td className="px-4 py-3">
+                      Gasto mediano que puede repetirse y afectar el presupuesto.
+                    </td>
+                  </tr>
+
+                  <tr>
+                    <td className="px-4 py-3 font-semibold text-violet-700">
+                      Gasto ratón
+                    </td>
+                    <td className="px-4 py-3">$100.001 a $200.000</td>
+                    <td className="px-4 py-3">
+                      Gasto grande que reduce de forma visible el dinero disponible.
+                    </td>
+                  </tr>
+
+                  <tr>
+                    <td className="px-4 py-3 font-semibold text-slate-800">
+                      Gasto plaga
+                    </td>
+                    <td className="px-4 py-3">Más de $200.000</td>
+                    <td className="px-4 py-3">
+                      Gasto de alto impacto que debería revisarse si no estaba planeado.
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <p className="text-xs leading-5 text-slate-400">
+              Los aportes a metas no se clasifican como gastos hormiga, cucaracha,
+              ratón o plaga porque representan ahorro y no consumo.
+            </p>
+          </div>
+        </InfoModal>
       </div>
     );
   }

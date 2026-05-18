@@ -34,7 +34,10 @@ import Header from '../components/Header';
 import StatCard from '../components/StatCard';
 import FinancialHealthCard from '../components/FinancialHealthCard';
 import ExportPanel from '../components/ExportPanel';
+import InfoModal from '../components/InfoModal';
+import ChartInfoButton from '../components/ChartInfoButton';
 import api from '../services/api';
+import LoadingScreen from '../components/LoadingScreen';
 import { formatMoney, normalizeText } from '../utils/formatters';
 import {
     buildMap,
@@ -208,6 +211,72 @@ function buildProjection(periodData) {
     ];
 }
 
+function FormulaBox({ children }) {
+    return (
+        <div className="rounded-2xl border border-violet-100 bg-violet-50 px-4 py-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-violet-600">
+                Fórmula utilizada
+            </p>
+
+            <div className="mt-2 rounded-xl bg-white px-4 py-3 font-mono text-sm font-semibold text-slate-800 shadow-sm">
+                {children}
+            </div>
+        </div>
+    );
+}
+
+function InfoStep({ number, title, description }) {
+    return (
+        <div className="flex gap-3 rounded-2xl bg-slate-50 p-3">
+            <div className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-violet-700 text-sm font-bold text-white">
+                {number}
+            </div>
+
+            <div>
+                <p className="text-sm font-semibold text-slate-900">{title}</p>
+                <p className="mt-1 text-sm leading-6 text-slate-500">
+                    {description}
+                </p>
+            </div>
+        </div>
+    );
+}
+
+function ChartExplanation({ intro, formula, steps = [], note }) {
+    return (
+        <div className="space-y-5">
+            <p className="text-sm leading-6 text-slate-500">{intro}</p>
+
+            {formula && <FormulaBox>{formula}</FormulaBox>}
+
+            {steps.length > 0 && (
+                <div className="space-y-3">
+                    {steps.map((step, index) => (
+                        <InfoStep
+                            key={step.title}
+                            number={index + 1}
+                            title={step.title}
+                            description={step.description}
+                        />
+                    ))}
+                </div>
+            )}
+
+            {note && (
+                <div className="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3">
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">
+                        Nota de lectura
+                    </p>
+
+                    <p className="mt-1 text-sm leading-6 text-amber-800">
+                        {note}
+                    </p>
+                </div>
+            )}
+        </div>
+    );
+}
+
 export default function Estadisticas({ usuario, onLogout }) {
     const currentUser = usuario || getStoredUser();
 
@@ -229,6 +298,7 @@ export default function Estadisticas({ usuario, onLogout }) {
 
     const [loading, setLoading] = useState(false);
     const [errorMessage, setErrorMessage] = useState('');
+    const [statsInfo, setStatsInfo] = useState(null);
 
     const [preferences, setPreferences] = useState(getStoredPreferences);
     useEffect(() => {
@@ -587,9 +657,7 @@ export default function Estadisticas({ usuario, onLogout }) {
                     )}
 
                     {loading ? (
-                        <div className="grid min-h-[320px] place-items-center rounded-3xl border border-dashed border-slate-200 bg-white text-sm font-medium text-slate-400">
-                            Cargando estadísticas financieras...
-                        </div>
+                        <LoadingScreen message="Cargando estadísticas financieras..." />
                     ) : (
                         <>
                             <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -651,19 +719,57 @@ export default function Estadisticas({ usuario, onLogout }) {
                             </section>
 
                             <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-                                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                                    <div>
-                                        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-violet-600">
-                                            Vista por cuenta
-                                        </p>
+                                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                                    <div className="flex items-start gap-4">
+                                        <div>
+                                            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-violet-600">
+                                                Vista por cuenta
+                                            </p>
 
-                                        <h2 className="mt-2 text-lg font-semibold text-slate-950">
-                                            Saldo actual de cuentas
-                                        </h2>
+                                            <h2 className="mt-2 text-lg font-semibold text-slate-950">
+                                                Saldo actual de cuentas
+                                            </h2>
 
-                                        <p className="mt-1 text-sm leading-6 text-slate-500">
-                                            Selecciona una cuenta para filtrar todo el dashboard únicamente con sus movimientos.
-                                        </p>
+                                            <p className="mt-1 text-sm leading-6 text-slate-500">
+                                                Selecciona una cuenta para filtrar todo el dashboard únicamente con sus movimientos.
+                                            </p>
+                                        </div>
+
+                                        <ChartInfoButton
+                                            onClick={() =>
+                                                setStatsInfo({
+                                                    title: 'Saldo actual por cuenta',
+                                                    content: (
+                                                        <ChartExplanation
+                                                            intro="Este gráfico muestra cuánto dinero tiene actualmente cada cuenta registrada en Finora. Sirve para comparar rápidamente qué cuenta concentra más saldo disponible."
+                                                            formula={
+                                                                <>
+                                                                    Saldo actual = Saldo inicial + Ingresos - Gastos
+                                                                </>
+                                                            }
+                                                            steps={[
+                                                                {
+                                                                    title: 'Parte del saldo inicial',
+                                                                    description:
+                                                                        'Finora toma el saldo que registraste al crear la cuenta.',
+                                                                },
+                                                                {
+                                                                    title: 'Suma los ingresos reales',
+                                                                    description:
+                                                                        'Se agregan únicamente las transacciones de tipo ingreso asociadas a esa cuenta.',
+                                                                },
+                                                                {
+                                                                    title: 'Resta los gastos reales',
+                                                                    description:
+                                                                        'Se descuentan las transacciones de tipo gasto asociadas a esa misma cuenta.',
+                                                                },
+                                                            ]}
+                                                            note="Si haces clic en una cuenta, todo el módulo de estadísticas se recalcula usando solo los movimientos de esa cuenta."
+                                                        />
+                                                    ),
+                                                })
+                                            }
+                                        />
                                     </div>
 
                                     {selectedAccount && (
@@ -723,19 +829,56 @@ export default function Estadisticas({ usuario, onLogout }) {
 
                             <section className="grid grid-cols-1 gap-6 xl:grid-cols-3">
                                 <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm xl:col-span-2">
-                                    <div className="flex flex-col gap-2">
-                                        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-violet-600">
+                                    <div className="flex items-start justify-between gap-4">
+                                        <div>
+                                            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-violet-600">
                                             Evolución financiera
-                                        </p>
+                                            </p>
 
-                                        <h2 className="text-lg font-semibold text-slate-950">
+                                            <h2 className="text-lg font-semibold text-slate-950">
                                             Ingresos, gastos y balance
-                                        </h2>
+                                            </h2>
 
-                                        <p className="text-sm leading-6 text-slate-500">
-                                            Visualiza si tu comportamiento financiero mejora o empeora
-                                            con el tiempo.
-                                        </p>
+                                            <p className="mt-1 text-sm leading-6 text-slate-500">
+                                            Muestra cómo cambian tus ingresos, gastos y balance según el período seleccionado.
+                                            </p>
+                                        </div>
+
+                                        <ChartInfoButton
+                                            onClick={() =>
+                                                setStatsInfo({
+                                                    title: 'Evolución financiera',
+                                                    content: (
+                                                        <ChartExplanation
+                                                            intro="Este gráfico permite ver cómo se mueve tu dinero en el tiempo. No muestra una foto estática, sino la tendencia de tus ingresos, gastos y balance según el período seleccionado."
+                                                            formula={
+                                                                <>
+                                                                    Balance del período = Ingresos del período - Gastos del período
+                                                                </>
+                                                            }
+                                                            steps={[
+                                                                {
+                                                                    title: 'Agrupa por período',
+                                                                    description:
+                                                                        'Finora organiza tus movimientos por semana, mes, trimestre o año, según el filtro seleccionado.',
+                                                                },
+                                                                {
+                                                                    title: 'Calcula ingresos y gastos',
+                                                                    description:
+                                                                        'Los ingresos suman categorías de tipo INGRESO. Los gastos suman categorías de tipo GASTO.',
+                                                                },
+                                                                {
+                                                                    title: 'Dibuja la tendencia',
+                                                                    description:
+                                                                        'Cada línea muestra si tus ingresos, gastos o balance están subiendo, bajando o manteniéndose estables.',
+                                                                },
+                                                            ]}
+                                                            note="Si el balance baja durante varios períodos, puede ser una señal de aumento de gastos o reducción de ingresos."
+                                                        />
+                                                    ),
+                                                })
+                                            }
+                                        />
                                     </div>
 
                                     <div className="mt-5 h-[320px]">
@@ -755,13 +898,53 @@ export default function Estadisticas({ usuario, onLogout }) {
                                 </article>
 
                                 <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-                                    <p className="text-xs font-semibold uppercase tracking-[0.24em] text-violet-600">
-                                        Distribución de gastos
-                                    </p>
+                                    <div className="flex items-start justify-between gap-4">
+                                        <div>
+                                            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-violet-600">
+                                            Distribución de gastos
+                                            </p>
 
-                                    <h2 className="mt-2 text-lg font-semibold text-slate-950">
-                                        ¿En qué gastas más?
-                                    </h2>
+                                            <h2 className="mt-2 text-lg font-semibold text-slate-950">
+                                            ¿En qué gastas más?
+                                            </h2>
+                                        </div>
+
+                                        <ChartInfoButton
+                                            onClick={() =>
+                                                setStatsInfo({
+                                                    title: 'Distribución de gastos',
+                                                    content: (
+                                                        <ChartExplanation
+                                                            intro="Este gráfico responde una pregunta sencilla: ¿en qué se está yendo más tu dinero? Para eso, Finora reparte tus gastos por categoría."
+                                                            formula={
+                                                                <>
+                                                                    Porcentaje de categoría = (Gasto de la categoría / Total de gastos) × 100
+                                                                </>
+                                                            }
+                                                            steps={[
+                                                                {
+                                                                    title: 'Filtra solo gastos',
+                                                                    description:
+                                                                        'No se tienen en cuenta ingresos ni aportes que no correspondan a gastos reales de consumo.',
+                                                                },
+                                                                {
+                                                                    title: 'Agrupa por categoría',
+                                                                    description:
+                                                                        'Cada gasto se suma dentro de su categoría, por ejemplo transporte, comida, entretenimiento o servicios.',
+                                                                },
+                                                                {
+                                                                    title: 'Calcula participación',
+                                                                    description:
+                                                                        'Finora calcula qué porcentaje ocupa cada categoría dentro del total de gastos filtrados.',
+                                                                },
+                                                            ]}
+                                                            note="Una categoría con porcentaje alto no siempre es mala; puede ser necesaria. Lo importante es detectar si está creciendo sin control."
+                                                        />
+                                                    ),
+                                                })
+                                            }
+                                        />
+                                        </div>
 
                                     <div className="mt-5 h-[240px]">
                                         <ResponsiveContainer width="100%" height="100%">
@@ -813,13 +996,53 @@ export default function Estadisticas({ usuario, onLogout }) {
 
                             <section className="grid grid-cols-1 gap-6 xl:grid-cols-2">
                                 <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-                                    <p className="text-xs font-semibold uppercase tracking-[0.24em] text-violet-600">
-                                        Comparativo mensual
-                                    </p>
+                                    <div className="flex items-start justify-between gap-4">
+                                        <div>
+                                            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-violet-600">
+                                            Comparativo por período
+                                            </p>
 
-                                    <h2 className="mt-2 text-lg font-semibold text-slate-950">
-                                        Ingresos vs gastos
-                                    </h2>
+                                            <h2 className="mt-2 text-lg font-semibold text-slate-950">
+                                            Ingresos vs gastos
+                                            </h2>
+                                        </div>
+
+                                        <ChartInfoButton
+                                            onClick={() =>
+                                                setStatsInfo({
+                                                    title: 'Ingresos vs gastos',
+                                                    content: (
+                                                        <ChartExplanation
+                                                            intro="Este comparativo permite ver si en cada período entra más dinero del que sale. Es una lectura rápida para identificar meses o semanas financieramente pesadas."
+                                                            formula={
+                                                                <>
+                                                                    Diferencia del período = Ingresos - Gastos
+                                                                </>
+                                                            }
+                                                            steps={[
+                                                                {
+                                                                    title: 'Calcula ingresos',
+                                                                    description:
+                                                                        'Suma todas las transacciones reales clasificadas como ingreso en el período.',
+                                                                },
+                                                                {
+                                                                    title: 'Calcula gastos',
+                                                                    description:
+                                                                        'Suma todas las transacciones reales clasificadas como gasto en el mismo período.',
+                                                                },
+                                                                {
+                                                                    title: 'Compara ambos valores',
+                                                                    description:
+                                                                        'Si los gastos superan los ingresos, ese período tuvo presión financiera.',
+                                                                },
+                                                            ]}
+                                                            note="Este gráfico es útil para detectar períodos donde conviene revisar hábitos, reducir gastos variables o ajustar metas."
+                                                        />
+                                                    ),
+                                                })
+                                            }
+                                        />
+                                        </div>
 
                                     <div className="mt-5 h-[300px]">
                                         <ResponsiveContainer width="100%" height="100%">
@@ -837,15 +1060,59 @@ export default function Estadisticas({ usuario, onLogout }) {
                                 </article>
 
                                 <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-                                    <p className="text-xs font-semibold uppercase tracking-[0.24em] text-violet-600">
-                                        Progreso de metas
-                                    </p>
+                                    <div className="flex items-start justify-between gap-4">
+                                        <div>
+                                            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-violet-600">
+                                            Progreso de metas
+                                            </p>
 
-                                    <h2 className="mt-2 text-lg font-semibold text-slate-950">
-                                        {selectedAccount
-                                            ? `Aportes desde ${selectedAccount.nombre}`
-                                            : 'Avance consolidado'}
-                                    </h2>
+                                            <h2 className="mt-2 text-lg font-semibold text-slate-950">
+                                            {selectedAccount
+                                                ? `Aportes desde ${selectedAccount.nombre}`
+                                                : 'Avance consolidado'}
+                                            </h2>
+                                        </div>
+
+                                        <ChartInfoButton
+                                            onClick={() =>
+                                                setStatsInfo({
+                                                    title: 'Progreso de metas',
+                                                    content: (
+                                                        <ChartExplanation
+                                                            intro="Esta sección muestra qué tan cerca estás de cumplir tus metas financieras. En vista global muestra el avance total; en vista por cuenta muestra cuánto ha aportado esa cuenta."
+                                                            formula={
+                                                                <>
+                                                                    Progreso = (Monto ahorrado / Monto objetivo) × 100
+                                                                </>
+                                                            }
+                                                            steps={[
+                                                                {
+                                                                    title: 'Toma el objetivo de la meta',
+                                                                    description:
+                                                                        'Cada meta tiene un monto objetivo definido por el usuario.',
+                                                                },
+                                                                {
+                                                                    title: 'Suma los aportes realizados',
+                                                                    description:
+                                                                        'Finora suma los aportes registrados para saber cuánto dinero se ha acumulado.',
+                                                                },
+                                                                {
+                                                                    title: 'Calcula el porcentaje',
+                                                                    description:
+                                                                        'El porcentaje indica qué parte del objetivo ya está cubierta.',
+                                                                },
+                                                            ]}
+                                                            note={
+                                                                selectedAccount
+                                                                    ? 'Como hay una cuenta seleccionada, el cálculo muestra el aporte realizado desde esa cuenta específica, no necesariamente el avance global total.'
+                                                                    : 'En vista global, el cálculo representa el avance consolidado de cada meta.'
+                                                            }
+                                                        />
+                                                    ),
+                                                })
+                                            }
+                                        />
+                                    </div>
 
                                     <div className="mt-5 space-y-4">
                                         {goalProgressData.length > 0 ? (
@@ -887,18 +1154,57 @@ export default function Estadisticas({ usuario, onLogout }) {
 
                             <section className="grid grid-cols-1 gap-6 xl:grid-cols-3">
                                 <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm xl:col-span-2">
-                                    <p className="text-xs font-semibold uppercase tracking-[0.24em] text-violet-600">
-                                        Proyección financiera
-                                    </p>
+                                    <div className="flex items-start justify-between gap-4">
+                                        <div>
+                                            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-violet-600">
+                                            Proyección financiera
+                                            </p>
 
-                                    <h2 className="mt-2 text-lg font-semibold text-slate-950">
-                                        Tendencia estimada
-                                    </h2>
+                                            <h2 className="mt-2 text-lg font-semibold text-slate-950">
+                                            Tendencia estimada
+                                            </h2>
 
-                                    <p className="mt-2 text-sm leading-6 text-slate-500">
-                                        Esta proyección usa un promedio móvil simple de los últimos
-                                        meses. No es IA compleja, pero ayuda a anticipar hábitos.
-                                    </p>
+                                            <p className="mt-2 text-sm leading-6 text-slate-500">
+                                            Esta proyección usa un promedio móvil simple de los últimos períodos.
+                                            </p>
+                                        </div>
+
+                                        <ChartInfoButton
+                                            onClick={() =>
+                                                setStatsInfo({
+                                                    title: 'Proyección financiera',
+                                                    content: (
+                                                        <ChartExplanation
+                                                            intro="Esta proyección no intenta adivinar el futuro. Toma tu comportamiento reciente y estima cómo podría verse el siguiente período si mantienes un patrón parecido."
+                                                            formula={
+                                                                <>
+                                                                    Proyección = Último balance + Promedio de los últimos 3 balances
+                                                                </>
+                                                            }
+                                                            steps={[
+                                                                {
+                                                                    title: 'Lee los últimos períodos',
+                                                                    description:
+                                                                        'Finora toma hasta los últimos tres períodos disponibles en la vista actual.',
+                                                                },
+                                                                {
+                                                                    title: 'Calcula el promedio',
+                                                                    description:
+                                                                        'Se obtiene el promedio simple de esos balances recientes.',
+                                                                },
+                                                                {
+                                                                    title: 'Estima el siguiente período',
+                                                                    description:
+                                                                        'Ese promedio se suma al último balance para crear una tendencia estimada.',
+                                                                },
+                                                            ]}
+                                                            note="La proyección cambia si filtras por cuenta, rango de fechas o agrupación semanal, mensual, trimestral o anual."
+                                                        />
+                                                    ),
+                                                })
+                                            }
+                                        />
+                                    </div>
 
                                     <div className="mt-5 h-[300px]">
                                         <ResponsiveContainer width="100%" height="100%">
@@ -961,6 +1267,14 @@ export default function Estadisticas({ usuario, onLogout }) {
                     )}
                 </main>
             </div>
+
+            <InfoModal
+                open={Boolean(statsInfo)}
+                title={statsInfo?.title}
+                onClose={() => setStatsInfo(null)}
+            >
+                {statsInfo?.content}
+            </InfoModal>
         </div>
     );
 }

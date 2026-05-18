@@ -5,6 +5,7 @@ import AccountCard from '../components/AccountCard';
 import AccountForm from '../components/AccountForm';
 import ConfirmModal from '../components/ConfirmModal';
 import api from '../services/api';
+import LoadingScreen from '../components/LoadingScreen';
 import { formatMoney, normalizeText } from '../utils/formatters';
 import {
   buildAccountsWithCurrentBalance,
@@ -26,6 +27,10 @@ function getInitialAccount(accountTypes = []) {
     id_tipo_cuenta: accountTypes[0]?.id_tipo_cuenta || '',
     saldo_inicial: '',
   };
+}
+
+function KpiDot({ className }) {
+  return <span className={`h-2 w-2 rounded-full ${className}`} />;
 }
 
 export default function Cuentas({ usuario, onLogout }) {
@@ -317,21 +322,33 @@ export default function Cuentas({ usuario, onLogout }) {
 
           <section className="grid shrink-0 grid-cols-1 gap-4 md:grid-cols-3">
             <article className="rounded-2xl border border-violet-100 bg-violet-50 p-5 shadow-sm">
-              <p className="text-sm font-semibold text-slate-600">Cuentas activas</p>
+              <div className="flex items-center gap-2">
+                <KpiDot className="bg-violet-600" />
+                <p className="text-sm font-semibold text-slate-600">Cuentas activas</p>
+              </div>
+
               <p className="mt-3 text-3xl font-semibold text-violet-950">
                 {accounts.filter((account) => account.activa).length}
               </p>
             </article>
 
             <article className="rounded-2xl border border-blue-100 bg-blue-50 p-5 shadow-sm">
-              <p className="text-sm font-semibold text-slate-600">Tipos disponibles</p>
+              <div className="flex items-center gap-2">
+                <KpiDot className="bg-blue-600" />
+                <p className="text-sm font-semibold text-slate-600">Tipos disponibles</p>
+              </div>
+
               <p className="mt-3 text-3xl font-semibold text-blue-950">
                 {accountTypes.length}
               </p>
             </article>
 
             <article className="rounded-2xl border border-emerald-100 bg-emerald-50 p-5 shadow-sm">
-              <p className="text-sm font-semibold text-slate-600">Saldo total actual</p>
+              <div className="flex items-center gap-2">
+                <KpiDot className="bg-emerald-600" />
+                <p className="text-sm font-semibold text-slate-600">Saldo total actual</p>
+              </div>
+
               <p className="mt-3 text-3xl font-semibold text-emerald-950">
                 {formatMoney(totalCurrentBalance)}
               </p>
@@ -438,9 +455,7 @@ export default function Cuentas({ usuario, onLogout }) {
 
             <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5">
               {loading ? (
-                <div className="grid h-full min-h-[260px] place-items-center rounded-2xl border border-dashed border-slate-200 text-sm font-medium text-slate-400">
-                  Cargando cuentas...
-                </div>
+                <LoadingScreen message="Cargando cuentas..." />
               ) : filteredAccounts.length > 0 ? (
                 <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
                   {filteredAccounts.map((account) => (
