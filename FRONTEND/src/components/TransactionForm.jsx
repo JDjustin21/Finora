@@ -1,4 +1,5 @@
 import { formatNumberInput, parseMoneyInput } from '../utils/formatters';
+import ScrollableSelect from './ScrollableSelect';
 
 export default function TransactionForm({
   transaction,
@@ -22,46 +23,42 @@ export default function TransactionForm({
     >
       <div className="flex flex-col gap-2 xl:col-span-2">
         <label className={labelClass}>Cuenta</label>
-        <select
-          className={inputClass}
+        <ScrollableSelect
           value={transaction.id_cuenta}
-          onChange={(e) =>
+          options={cuentas}
+          placeholder="Selecciona una cuenta"
+          emptyMessage="No hay cuentas disponibles"
+          searchPlaceholder="Buscar cuenta..."
+          getOptionValue={(cuenta) => cuenta.id_cuenta}
+          getOptionLabel={(cuenta) => cuenta.nombre}
+          onChange={(idCuenta) =>
             onChange({
               ...transaction,
-              id_cuenta: e.target.value,
+              id_cuenta: idCuenta,
             })
           }
-        >
-          <option value="">Selecciona una cuenta</option>
-
-          {cuentas.map((cuenta) => (
-            <option key={cuenta.id_cuenta} value={cuenta.id_cuenta}>
-              {cuenta.nombre}
-            </option>
-          ))}
-        </select>
+        />
       </div>
 
       <div className="flex flex-col gap-2 xl:col-span-2">
         <label className={labelClass}>Categoría</label>
-        <select
-          className={inputClass}
+        <ScrollableSelect
           value={transaction.id_categoria}
-          onChange={(e) =>
+          options={categorias}
+          placeholder="Selecciona una categoría"
+          emptyMessage="No hay categorías disponibles"
+          searchPlaceholder="Buscar categoría..."
+          getOptionValue={(categoria) => categoria.id_categoria}
+          getOptionLabel={(categoria) =>
+            `${categoria.nombre} - ${categoria.tipo_movimiento}`
+          }
+          onChange={(idCategoria) =>
             onChange({
               ...transaction,
-              id_categoria: e.target.value,
+              id_categoria: idCategoria,
             })
           }
-        >
-          <option value="">Selecciona una categoría</option>
-
-          {categorias.map((categoria) => (
-            <option key={categoria.id_categoria} value={categoria.id_categoria}>
-              {categoria.nombre} - {categoria.tipo_movimiento}
-            </option>
-          ))}
-        </select>
+        />
         <button
           type="button"
           onClick={onOpenCategoryForm}

@@ -1,10 +1,12 @@
 import { formatMoney, formatNumberInput, parseMoneyInput } from '../utils/formatters';
+import ScrollableSelect from './ScrollableSelect';
 
 export default function GoalContributionModal({
   open,
   goal,
   accounts,
   contribution,
+  errorMessage,
   onChange,
   onSubmit,
   onCancel,
@@ -65,26 +67,29 @@ export default function GoalContributionModal({
         </div>
 
         <form className="mt-6 grid grid-cols-1 gap-4" onSubmit={onSubmit}>
+          {errorMessage && (
+            <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
+              {errorMessage}
+            </div>
+          )}
           <div className="flex flex-col gap-2">
             <label className={labelClass}>Cuenta origen</label>
-            <select
-              className={inputClass}
+
+            <ScrollableSelect
               value={contribution.id_cuenta}
-              onChange={(e) =>
+              options={accounts}
+              placeholder="Selecciona una cuenta"
+              emptyMessage="No hay cuentas disponibles"
+              searchPlaceholder="Buscar cuenta..."
+              getOptionValue={(account) => account.id_cuenta}
+              getOptionLabel={(account) => account.nombre}
+              onChange={(idCuenta) =>
                 onChange({
                   ...contribution,
-                  id_cuenta: e.target.value,
+                  id_cuenta: idCuenta,
                 })
               }
-            >
-              <option value="">Selecciona una cuenta</option>
-
-              {accounts.map((account) => (
-                <option key={account.id_cuenta} value={account.id_cuenta}>
-                  {account.nombre}
-                </option>
-              ))}
-            </select>
+            />
           </div>
 
           <div className="flex flex-col gap-2">

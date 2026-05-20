@@ -44,6 +44,7 @@ import {
     normalizeUserTransactions,
 } from '../utils/finance';
 import { getStoredPreferences } from '../utils/preferences';
+import { getExpenseType } from '../utils/expenseTypes';
 
 function getStoredUser() {
     const localUser = localStorage.getItem('finora_usuario');
@@ -121,32 +122,52 @@ function buildMonthlyData(transactions) {
     return Object.values(grouped).sort((a, b) => a.monthIndex - b.monthIndex);
 }
 
-function buildExpenseDistribution(transactions) {
+function getExpenseDistributionGroup(transaction, groupBy) {
+    if (groupBy === 'expenseType') {
+        const expenseType = getExpenseType({
+            amount: transaction.amount,
+            transactionType: transaction.type,
+            categoryName: transaction.title,
+        });
+
+        return expenseType?.label || null;
+    }
+
+    return transaction.title || 'Sin categoría';
+}
+
+function buildExpenseDistribution(transactions, groupBy = 'category') {
     const expenses = transactions.filter((transaction) => {
         return transaction.tipoMovimiento === 'GASTO';
     });
 
-    const totalExpenses = expenses.reduce((total, transaction) => {
-        return total + Math.abs(Number(transaction.amount || 0));
-    }, 0);
-
     const grouped = expenses.reduce((acc, transaction) => {
-        const categoryName = transaction.title || 'Sin categoría';
+        const groupName = getExpenseDistributionGroup(transaction, groupBy);
 
-        if (!acc[categoryName]) {
-            acc[categoryName] = {
-                name: categoryName,
+        if (!groupName) {
+            return acc;
+        }
+
+        if (!acc[groupName]) {
+            acc[groupName] = {
+                name: groupName,
                 value: 0,
                 percent: 0,
             };
         }
 
-        acc[categoryName].value += Math.abs(Number(transaction.amount || 0));
+        acc[groupName].value += Math.abs(Number(transaction.amount || 0));
 
         return acc;
     }, {});
 
-    return Object.values(grouped)
+    const groupedValues = Object.values(grouped);
+
+    const totalExpenses = groupedValues.reduce((total, item) => {
+        return total + Number(item.value || 0);
+    }, 0);
+
+    return groupedValues
         .map((item) => ({
             ...item,
             percent: totalExpenses > 0 ? (item.value / totalExpenses) * 100 : 0,
@@ -288,6 +309,7 @@ export default function Estadisticas({ usuario, onLogout }) {
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
     const [selectedAccountId, setSelectedAccountId] = useState('');
+    const [expenseDistributionTab, setExpenseDistributionTab] = useState('category');
 
 
     const [accounts, setAccounts] = useState([]);
@@ -441,11 +463,20 @@ export default function Estadisticas({ usuario, onLogout }) {
         return buildProjection(periodData);
     }, [periodData]);
 
-    const expenseDistribution = useMemo(() => {
-        return buildExpenseDistribution(filteredTransactions);
+    const expenseDistributionByCategory = useMemo(() => {
+        return buildExpenseDistribution(filteredTransactions, 'category');
     }, [filteredTransactions]);
 
-    const topExpenseCategory = expenseDistribution[0];
+    const expenseDistributionByType = useMemo(() => {
+        return buildExpenseDistribution(filteredTransactions, 'expenseType');
+    }, [filteredTransactions]);
+
+    const expenseDistribution =
+        expenseDistributionTab === 'category'
+            ? expenseDistributionByCategory
+            : expenseDistributionByType;
+
+    const topExpenseCategory = expenseDistributionByCategory[0];
 
     const currentMonth = periodData[periodData.length - 1];
     const previousMonth = periodData[periodData.length - 2];
@@ -915,10 +946,10 @@ export default function Estadisticas({ usuario, onLogout }) {
                                                     title: 'Distribución de gastos',
                                                     content: (
                                                         <ChartExplanation
-                                                            intro="Este gráfico responde una pregunta sencilla: ¿en qué se está yendo más tu dinero? Para eso, Finora reparte tus gastos por categoría."
+                                                            intro="Este gráfico responde una pregunta sencilla: ¿en qué se está yendo más tu dinero? Finora permite revisar la distribución por categoría o por tipo de gasto."
                                                             formula={
                                                                 <>
-                                                                    Porcentaje de categoría = (Gasto de la categoría / Total de gastos) × 100
+                                                                    Porcentaje del grupo = (Gasto del grupo / Total de gastos) × 100
                                                                 </>
                                                             }
                                                             steps={[
@@ -928,9 +959,9 @@ export default function Estadisticas({ usuario, onLogout }) {
                                                                         'No se tienen en cuenta ingresos ni aportes que no correspondan a gastos reales de consumo.',
                                                                 },
                                                                 {
-                                                                    title: 'Agrupa por categoría',
+                                                                    title: 'Agrupa según la pestaña seleccionada',
                                                                     description:
-                                                                        'Cada gasto se suma dentro de su categoría, por ejemplo transporte, comida, entretenimiento o servicios.',
+                                                                        'Si eliges categoría, Finora agrupa por categorías como transporte, comida o servicios. Si eliges tipo de gasto, usa la clasificación educativa de gasto hormiga, cucaracha, ratón o plaga.',
                                                                 },
                                                                 {
                                                                     title: 'Calcula participación',
@@ -944,6 +975,32 @@ export default function Estadisticas({ usuario, onLogout }) {
                                                 })
                                             }
                                         />
+                                    </div>
+
+                                    <div className="mt-5 inline-flex rounded-2xl bg-slate-100 p-1">
+                                        <button
+                                            type="button"
+                                            onClick={() => setExpenseDistributionTab('category')}
+                                            className={
+                                                expenseDistributionTab === 'category'
+                                                    ? 'rounded-xl bg-white px-3 py-2 text-xs font-semibold text-slate-950 shadow-sm'
+                                                    : 'rounded-xl px-3 py-2 text-xs font-semibold text-slate-500 transition hover:text-slate-900'
+                                            }
+                                        >
+                                            Por categoría
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            onClick={() => setExpenseDistributionTab('expenseType')}
+                                            className={
+                                                expenseDistributionTab === 'expenseType'
+                                                    ? 'rounded-xl bg-white px-3 py-2 text-xs font-semibold text-slate-950 shadow-sm'
+                                                    : 'rounded-xl px-3 py-2 text-xs font-semibold text-slate-500 transition hover:text-slate-900'
+                                            }
+                                        >
+                                            Por tipo de gasto
+                                        </button>
                                     </div>
 
                                     <div className="mt-5 h-[240px]">

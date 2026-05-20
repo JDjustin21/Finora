@@ -45,6 +45,16 @@ function getInitialContribution(accounts = []) {
   };
 }
 
+function formatContributionError(message) {
+  if (!message) {
+    return 'No se pudo registrar el aporte.';
+  }
+
+  return String(message).replace(/\d+(\.\d+)?/g, (value) => {
+    return formatMoney(Number(value));
+  });
+}
+
 function KpiDot({ className }) {
   return <span className={`h-2 w-2 rounded-full ${className}`} />;
 }
@@ -90,6 +100,7 @@ export default function Metas({ usuario, onLogout }) {
 
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [contributionErrorMessage, setContributionErrorMessage] = useState('');
 
   const [showGoalForm, setShowGoalForm] = useState(false);
   const [editingGoalId, setEditingGoalId] = useState(null);
@@ -277,6 +288,9 @@ export default function Metas({ usuario, onLogout }) {
   }
 
   function openContributionModal(goal) {
+    setErrorMessage('');
+    setContributionErrorMessage('');
+
     if (accounts.length === 0) {
       setErrorMessage(
         'Debes crear una cuenta activa antes de aportar dinero a una meta.'
@@ -291,18 +305,19 @@ export default function Metas({ usuario, onLogout }) {
   async function handleSubmitContribution(event) {
     event.preventDefault();
     setErrorMessage('');
+    setContributionErrorMessage('');
 
     if (!goalToContribute) return;
 
     const monto = Number(contributionForm.monto || 0);
 
     if (!contributionForm.id_cuenta) {
-      setErrorMessage('Debes seleccionar la cuenta de origen.');
+      setContributionErrorMessage('Debes seleccionar la cuenta de origen.');
       return;
     }
 
     if (Number.isNaN(monto) || monto <= 0) {
-      setErrorMessage('El aporte debe ser mayor a cero.');
+      setContributionErrorMessage('El aporte debe ser mayor a cero.');
       return;
     }
 
@@ -314,12 +329,16 @@ export default function Metas({ usuario, onLogout }) {
       });
 
       setGoalToContribute(null);
+      setContributionErrorMessage('');
       setContributionForm(getInitialContribution(accounts));
       await loadGoalsModule();
     } catch (error) {
       console.error('Error registrando aporte:', error.response?.data || error);
-      setErrorMessage(
-        error.response?.data?.message || 'No se pudo registrar el aporte.'
+
+      setContributionErrorMessage(
+        formatContributionError(
+          error.response?.data?.message || 'No se pudo registrar el aporte.'
+        )
       );
     }
   }
@@ -510,8 +529,15 @@ export default function Metas({ usuario, onLogout }) {
         goal={goalToContribute}
         accounts={accounts}
         contribution={contributionForm}
-        onChange={setContributionForm}
-        onCancel={() => setGoalToContribute(null)}
+        errorMessage={contributionErrorMessage}
+        onChange={(value) => {
+          setContributionForm(value);
+          setContributionErrorMessage('');
+        }}
+        onCancel={() => {
+          setGoalToContribute(null);
+          setContributionErrorMessage('');
+        }}
         onSubmit={handleSubmitContribution}
       />
 

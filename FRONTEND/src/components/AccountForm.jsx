@@ -1,4 +1,6 @@
 import { formatNumberInput, parseMoneyInput } from '../utils/formatters';
+import ScrollableSelect from './ScrollableSelect';
+
 export default function AccountForm({
   account,
   accountTypes,
@@ -34,24 +36,22 @@ export default function AccountForm({
 
       <div className="flex flex-col gap-2 xl:col-span-2">
         <label className={labelClass}>Tipo de cuenta</label>
-        <select
-          className={inputClass}
+
+        <ScrollableSelect
           value={account.id_tipo_cuenta}
-          onChange={(e) =>
+          options={accountTypes}
+          placeholder="Selecciona un tipo"
+          emptyMessage="No hay tipos de cuenta disponibles"
+          searchPlaceholder="Buscar tipo de cuenta..."
+          getOptionValue={(type) => type.id_tipo_cuenta}
+          getOptionLabel={(type) => type.nombre}
+          onChange={(idTipoCuenta) =>
             onChange({
               ...account,
-              id_tipo_cuenta: e.target.value,
+              id_tipo_cuenta: idTipoCuenta,
             })
           }
-        >
-          <option value="">Selecciona un tipo</option>
-
-          {accountTypes.map((type) => (
-            <option key={type.id_tipo_cuenta} value={type.id_tipo_cuenta}>
-              {type.nombre}
-            </option>
-          ))}
-        </select>
+        />
       </div>
 
       <div className="flex flex-col gap-2">

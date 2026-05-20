@@ -80,6 +80,8 @@ export default function Transacciones({ usuario, onLogout }) {
   const [showTransactionForm, setShowTransactionForm] = useState(false);
   const [editingTransactionId, setEditingTransactionId] = useState(null);
   const [transactionToDelete, setTransactionToDelete] = useState(null);
+  const [showAccountRequiredModal, setShowAccountRequiredModal] = useState(false);
+  const [showProjectionAccountRequiredModal, setShowProjectionAccountRequiredModal] = useState(false);
 
   const [projections, setProjections] = useState([]);
   const [showProjectionForm, setShowProjectionForm] = useState(false);
@@ -715,14 +717,7 @@ export default function Transacciones({ usuario, onLogout }) {
                       className="inline-flex items-center justify-center rounded-2xl bg-violet-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-violet-800"
                       onClick={() => {
                         if (cuentas.length === 0) {
-                          const shouldGoToAccounts = window.confirm(
-                            'Necesitas crear una cuenta antes de registrar transacciones. ¿Quieres ir al módulo de Cuentas?'
-                          );
-
-                          if (shouldGoToAccounts) {
-                            navigate('/cuentas');
-                          }
-
+                          setShowAccountRequiredModal(true);
                           return;
                         }
 
@@ -747,14 +742,7 @@ export default function Transacciones({ usuario, onLogout }) {
                       className="inline-flex items-center justify-center rounded-2xl border border-violet-200 bg-violet-50 px-4 py-2.5 text-sm font-semibold text-violet-700 shadow-sm transition hover:bg-violet-100"
                       onClick={() => {
                         if (cuentas.length === 0) {
-                          const shouldGoToAccounts = window.confirm(
-                            'Necesitas crear una cuenta antes de crear proyecciones. ¿Quieres ir al módulo de Cuentas?'
-                          );
-
-                          if (shouldGoToAccounts) {
-                            navigate('/cuentas');
-                          }
-
+                          setShowProjectionAccountRequiredModal(true);
                           return;
                         }
 
@@ -770,7 +758,7 @@ export default function Transacciones({ usuario, onLogout }) {
                         setShowProjectionForm(true);
                         setActiveTab('proyecciones');
                       }}
-                    >
+                      >
                       {showProjectionForm ? 'Cancelar proyección' : '+ Nueva proyección'}
                     </button>
                   </div>
@@ -1029,6 +1017,34 @@ export default function Transacciones({ usuario, onLogout }) {
             </section>
           </main>
         </div>
+
+        <ConfirmModal
+          open={showAccountRequiredModal}
+          title="Primero crea una cuenta"
+          message="Para registrar una transacción necesitas tener al menos una cuenta asociada. Puedes crearla desde el módulo de Cuentas."
+          confirmLabel="Ir a Cuentas"
+          cancelLabel="Cancelar"
+          variant="default"
+          onCancel={() => setShowAccountRequiredModal(false)}
+          onConfirm={() => {
+            setShowAccountRequiredModal(false);
+            navigate('/cuentas');
+          }}
+        />
+
+        <ConfirmModal
+          open={showProjectionAccountRequiredModal}
+          title="Primero crea una cuenta"
+          message="Para crear una proyección necesitas tener al menos una cuenta asociada. Puedes crearla desde el módulo de Cuentas."
+          confirmLabel="Ir a Cuentas"
+          cancelLabel="Cancelar"
+          variant="default"
+          onCancel={() => setShowProjectionAccountRequiredModal(false)}
+          onConfirm={() => {
+            setShowProjectionAccountRequiredModal(false);
+            navigate('/cuentas');
+          }}
+        />
 
         <ConfirmModal
           open={Boolean(transactionToDelete)}
